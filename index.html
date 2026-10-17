@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Fita Metra Fichas</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>FITA METRA <small>FICHAS</small></h1>
+    <div class="row"><span id="who">Desconectado</span><button id="logout" class="hidden">Sair</button></div>
+  </header>
+  <main>
+    <div id="message" role="status" aria-live="polite"></div>
+    <p id="syncStatus" class="muted"></p>
+    <section id="setup" class="card hidden"><h2>Configuração necessária</h2><p>Confira as instruções de instalação no LEIA-ME.md.</p></section>
+    <section id="auth" class="card">
+      <h2>Entrar / criar conta</h2>
+      <div class="grid">
+        <div><label for="email">E-mail</label><input id="email" type="email" autocomplete="email" required></div>
+        <div><label for="password">Senha</label><input id="password" type="password" autocomplete="current-password" minlength="6" required></div>
+      </div>
+      <div class="row actions"><button class="primary" id="login">Entrar</button><button id="signup">Criar conta</button><button id="resetPassword">Esqueci minha senha</button></div>
+      <p class="muted">Após o cadastro, confirme seu e-mail se solicitado.</p>
+    </section>
+    <section id="recovery" class="card hidden">
+      <h2>Definir nova senha</h2>
+      <label for="newPassword">Nova senha (mínimo de 8 caracteres)</label><input id="newPassword" type="password" autocomplete="new-password" minlength="8" required>
+      <button id="updatePassword" class="primary actions">Salvar nova senha</button>
+    </section>
+    <section id="app" class="hidden">
+      <div class="card">
+        <h2>Campanhas</h2>
+        <label for="newCampaign">Nome da nova campanha</label>
+        <div class="row"><input id="newCampaign" class="grow" maxlength="100"><button id="createCampaign" class="primary">Criar campanha</button></div>
+        <label for="invite">Código de convite</label>
+        <div class="row"><input id="invite" class="grow" maxlength="64"><button id="joinCampaign">Entrar por convite</button></div>
+        <label for="campaignSelect">Campanha ativa</label><select id="campaignSelect"></select>
+        <p id="campaignInfo" class="muted"></p>
+      </div>
+      <div id="workspace" class="hidden">
+        <div class="card">
+          <div class="row"><h2 class="grow">Personagens</h2><button id="newCharacter" class="primary">+ Novo personagem</button></div>
+          <div class="list" id="characters" aria-label="Personagens da campanha"></div>
+        </div>
+        <div id="editor" class="hidden">
+          <div class="grid">
+            <section class="card">
+              <h2>Ficha do personagem</h2>
+              <label for="charName">Nome</label><input id="charName" maxlength="120" required>
+              <label for="hp">Vida atual</label>
+              <div class="row hp-controls"><button id="minus5" aria-label="Reduzir vida em 5">−5</button><button id="minus" aria-label="Reduzir vida em 1">−1</button><input id="hp" type="number" min="0" max="1000000" step="1"><button id="plus" aria-label="Aumentar vida em 1">+1</button><button id="plus5" aria-label="Aumentar vida em 5">+5</button></div>
+              <label for="maxHp">Vida máxima</label><input id="maxHp" type="number" min="1" max="1000000" step="1">
+              <label for="notes">Ficha livre</label><textarea id="notes" maxlength="50000" placeholder="História, habilidades, inventário…"></textarea>
+              <label for="activeSlot">Estado / imagem ativa</label><select id="activeSlot"></select>
+              <p>Variações salvas</p><div id="portraitGallery" class="portrait-gallery" aria-label="Variações de retrato"></div>
+              <label for="uploadSlot">Estado que receberá a imagem</label><select id="uploadSlot"></select>
+              <label for="upload">Enviar imagem (PNG, JPG ou WebP, até 5 MB)</label><input id="upload" type="file" accept="image/png,image/jpeg,image/webp">
+              <p class="muted">O upload salva somente a imagem. As outras alterações ficam no rascunho até você salvar a ficha.</p>
+              <div id="characterConflict" class="conflict hidden" role="status">
+                <p>Campos alterados por outra pessoa: <span id="conflictFields"></span>. Escolha qual versão usar.</p>
+                <button id="characterReload">Usar versão do servidor</button><button id="characterKeep">Manter minhas alterações</button>
+              </div>
+              <p id="draftStatus" role="status"></p>
+              <div class="row"><button id="saveCharacter" class="primary">Salvar ficha</button><button id="deleteCharacter" class="danger">Excluir personagem</button></div>
+            </section>
+            <section class="card">
+              <h2>Aparência e OBS</h2>
+              <label for="font">Fonte do nome e da vida</label><select id="font"></select>
+              <div class="row"><div class="grow"><label for="nameColor">Cor dos textos</label><input id="nameColor" type="color"></div><div class="grow"><label for="nameSize">Tamanho do nome</label><input id="nameSize" type="number" min="12" max="60" step="1"></div></div>
+              <label class="check" for="showHp"><input id="showHp" type="checkbox"> Mostrar números de HP</label>
+              <h2 class="actions">Prévia individual</h2>
+              <div class="demo"><div class="overlay-content" id="preview"></div></div>
+              <label for="obsLink">Link exclusivo do OBS</label><input id="obsLink" readonly>
+              <div class="row actions"><button id="copyObs">Copiar</button><button id="openObs">Abrir</button><button id="rotateOverlay">Renovar link</button></div>
+              <p class="muted">Fonte de Navegador: 490 × 320. O link permite visualizar este personagem. Renovar invalida o link anterior. Fontes dependem das instaladas no computador do OBS.</p>
+            </section>
+          </div>
+        </div>
+        <section class="card" id="appearance">
+          <h2>Aparência da campanha</h2>
+          <div id="ownerOnly">
+            <p>Modelo da barra</p><div class="list" id="barOptions" aria-label="Modelos de barra"></div>
+            <div class="row"><div><label for="grad1">Início do degradê</label><input type="color" id="grad1"></div><div><label for="grad2">Fim do degradê</label><input type="color" id="grad2"></div></div>
+            <p class="muted">Ajuste o preenchimento dentro da moldura. Posição e tamanho são percentuais.</p>
+            <div class="grid">
+              <div><label for="fitX">Posição X (%)</label><input type="number" id="fitX" step="0.1" min="0" max="100"><label for="fitY">Posição Y (%)</label><input type="number" id="fitY" step="0.1" min="0" max="100"></div>
+              <div><label for="fitW">Largura (%)</label><input type="number" id="fitW" step="0.1" min="1" max="100"><label for="fitH">Altura (%)</label><input type="number" id="fitH" step="0.1" min="1" max="100"></div>
+            </div>
+            <div id="campaignConflict" class="conflict hidden" role="status"><p>A aparência também foi alterada em outra sessão.</p><button id="campaignReload">Usar versão do servidor</button><button id="campaignKeep">Manter minhas alterações</button></div>
+            <p id="appearanceStatus" role="status"></p>
+            <div class="row"><button class="primary" id="saveCampaign">Salvar aparência da campanha</button><button id="resetFit">Restaurar encaixe desta barra</button></div>
+          </div>
+          <p id="notOwner" class="muted hidden">Somente o mestre pode mudar a aparência geral.</p>
+        </section>
+        <section class="card">
+          <h2>Participação na campanha</h2>
+          <div id="memberAdmin" class="hidden">
+            <button id="rotateInvite">Renovar código de convite</button>
+            <label for="memberSelect">Participante</label><select id="memberSelect"></select>
+            <button id="removeMember" class="danger actions">Remover participante</button>
+            <p class="muted">Ao remover alguém, suas fichas passam para o mestre. Todos os links OBS e o convite da campanha são renovados para encerrar os acessos compartilhados.</p>
+          </div>
+          <button id="leaveCampaign" class="danger">Sair da campanha</button>
+        </section>
+      </div>
+    </section>
+  </main>
+  <script src="config.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
