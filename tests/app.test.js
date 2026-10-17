@@ -211,3 +211,17 @@ test('player can edit own sheet, health and active state but cannot upload portr
  f.input('hp','40'); f.$('minus5').click();
  assert.equal(f.$('hp').value,'40'); assert.equal(f.$('extraHp').value,'15');
 });
+
+test('health display choice is saved per character and numeric mode ignores bar label toggle',async t=>{
+ const f=await fixture(t);
+ f.input('hpDisplay','numbers');
+ assert.equal(f.$('showHp').disabled,true);
+ assert.ok(f.$('preview').querySelector('.obs-health-numbers'));
+ await f.$('saveCharacter').onclick();
+ assert.equal(f.calls[0].patch.hp_display,'numbers');
+ await f.app.refreshCharacters();
+ assert.equal(f.$('hpDisplay').value,'numbers');
+ f.input('hpDisplay','bar');
+ assert.equal(f.$('showHp').disabled,false);
+ assert.ok(f.$('preview').querySelector('.bar-frame'));
+});

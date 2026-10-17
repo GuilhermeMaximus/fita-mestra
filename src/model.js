@@ -1,5 +1,5 @@
 export const slots = ['Normal', 'Combate', 'Machucado', 'Inconsciente'];
-export const characterFields = ['name', 'notes', 'hp', 'extra_hp', 'max_hp', 'active_slot', 'font', 'name_color', 'name_size', 'show_hp'];
+export const characterFields = ['name', 'notes', 'hp', 'extra_hp', 'max_hp', 'active_slot', 'font', 'name_color', 'name_size', 'show_hp', 'hp_display'];
 export const campaignFields = ['bar', 'custom_bar', 'grad1', 'grad2', 'fits'];
 export const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -10,7 +10,7 @@ export class DraftStore {
   remove(id) { this.entries.delete(id); }
   get(id) { return this.entries.get(id); }
   ingest(row) {
-    row = { ...(this.fields.includes('extra_hp') ? { extra_hp: 0 } : {}), ...(this.fields.includes('custom_bar') ? { custom_bar: null } : {}), ...row };
+    row = { ...(this.fields.includes('extra_hp') ? { extra_hp: 0, hp_display: 'bar' } : {}), ...(this.fields.includes('custom_bar') ? { custom_bar: null } : {}), ...row };
     const entry = this.get(row.id);
     if (entry && Number.isFinite(row.version) && row.version < entry.remote.version) return entry;
     if (!entry) {
@@ -72,6 +72,7 @@ export function validateCharacter(d) {
   if (!/^#[0-9a-f]{6}$/i.test(d.name_color)) throw Error('Cor de texto inválida.');
   if (!Number.isInteger(d.name_size) || d.name_size < 12 || d.name_size > 60) throw Error('Tamanho do nome: informe um inteiro de 12 a 60.');
   if (typeof d.font !== 'string' || !d.font.trim() || d.font.length > 80) throw Error('Fonte inválida.');
+  if (!['bar', 'numbers'].includes(d.hp_display ?? 'bar')) throw Error('Formato de vida inválido.');
   if (typeof d.show_hp !== 'boolean') throw Error('Opção de vida inválida.');
 }
 

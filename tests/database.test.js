@@ -33,6 +33,8 @@ test('PostgreSQL migration, conflict detection, RLS, membership, token rotation 
     const healthMigration = await readFile('supabase/migrations/202610170002_health_and_bars.sql','utf8');
     await db.exec(healthMigration);
     await db.exec(healthMigration);
+    const displayMigration = await readFile('supabase/migrations/202610170003_health_display.sql','utf8');
+    await db.exec(displayMigration); await db.exec(displayMigration);
     async function as(user, fn, role = 'authenticated') {
       await db.exec(`set role ${role}; select set_config('request.jwt.claim.sub','${user}',false);`);
       try { return await fn(); } finally { await db.exec('reset role'); }
@@ -76,6 +78,9 @@ test('PostgreSQL migration, conflict detection, RLS, membership, token rotation 
       await assert.rejects(as(player,()=>q('select public.replace_portrait($1,$2,$3)',[ch.id,'Normal',url])),/permissão/);
     });
     await t.test('extra health, custom bars and storage permissions', async () => {
+      const [mode] = await save(player,{hp_display:'numbers'},{hp_display:'bar'});
+      assert.equal(mode.hp_display,'numbers');
+      await assert.rejects(save(player,{hp_display:'invalid'},{hp_display:'numbers'}),/constraint/);
       const [health] = await save(player,{hp:120},{hp:40});
       assert.equal(health.hp,100); assert.equal(health.extra_hp,20);
       const [hurt] = await save(player,{hp:40},{hp:100});
@@ -86,7 +91,7 @@ test('PostgreSQL migration, conflict detection, RLS, membership, token rotation 
       await as(owner,()=>q('select public.replace_bar($1,$2)',[cid,url]));
       await as(owner,()=>q('select public.save_campaign($1,$2,$3)',[cid,'{"bar":"Personalizada"}','{"bar":"Pixel Art"}']));
       const [result] = await as('',()=>q('select public.get_overlay($1) as data',[ch.overlay_token]),'anon');
-      assert.equal(result.data.custom_bar,url); assert.equal(result.data.extra_hp,20);
+      assert.equal(result.data.hp_display,'numbers'); assert.equal(result.data.custom_bar,url); assert.equal(result.data.extra_hp,20);
       assert.equal((await q('select public.portrait_referenced($1) as used',[path]))[0].used,true);
       await assert.rejects(as(player,()=>q('update public.campaigns set custom_bar=$1 where id=$2',[url,cid])),/permission denied/);
     });

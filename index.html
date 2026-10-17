@@ -62,9 +62,9 @@
                   <section class="panel session-panel" id="panel-session" data-panel="session" role="tabpanel" aria-labelledby="tab-session" tabindex="0">
                     <div class="section-heading"><h2>Em cena</h2><span class="eyebrow">CONTROLE RÁPIDO</span></div>
                     <p class="muted">Cuide da vida. Continue a história.</p>
-                    <div class="vital-display"><label for="hp">PONTOS DE VIDA</label><div class="hp-reading"><input id="hp" type="number" min="0" max="1000000" step="1"><span>/ <span id="maxHpReading">100</span></span></div><div class="vital-track" aria-hidden="true"><span id="hpMeter"></span></div><p id="hpDescription" class="fine"></p></div>
+                    <label for="hpDisplay">Exibir vida na prévia e no OBS</label><select id="hpDisplay"><option value="bar">Barra de vida</option><option value="numbers">Números — 44/44 +5</option></select><div class="vital-display"><label for="hp">PONTOS DE VIDA</label><div class="hp-reading"><input id="hp" type="number" min="0" max="1000000" step="1"><span>/ <span id="maxHpReading">100</span></span></div><div class="vital-track" aria-hidden="true"><span id="hpMeter"></span><span id="extraMeter"></span></div><p id="hpDescription" class="fine"></p></div>
                     <div class="hp-controls"><span class="sr-only">Ajustar pontos de vida</span><button id="minus5" aria-label="Reduzir vida em 5">−5</button><button id="minus" aria-label="Reduzir vida em 1">−1</button><button id="plus" aria-label="Aumentar vida em 1">+1</button><button id="plus5" aria-label="Aumentar vida em 5">+5</button></div>
-                    <div class="extra-health"><label for="extraHp">Vida extra</label><input id="extraHp" type="number" min="0" max="1000000" step="1" value="0"><p class="fine">Independente da vida normal. Valores acima do máximo viram vida extra. Os botões de dano consomem a vida extra primeiro.</p><div class="extra-track" aria-hidden="true"><span id="extraMeter" class="extra-fill"></span></div></div><div class="state-field"><label for="activeSlot">Retrato em cena</label><select id="activeSlot"></select><p class="fine">A troca é manual. Salve para atualizar a transmissão.</p></div>
+                    <div class="extra-health"><label for="extraHp">Vida extra</label><input id="extraHp" type="number" min="0" max="1000000" step="1" value="0"><p class="fine">Independente da vida normal. Valores acima do máximo viram vida extra. Os botões de dano consomem a vida extra primeiro.</p></div><div class="state-field"><label for="activeSlot">Retrato em cena</label><select id="activeSlot"></select><p class="fine">A troca é manual. Salve para atualizar a transmissão.</p></div>
                   </section>
                   <section class="panel" id="panel-sheet" data-panel="sheet" role="tabpanel" aria-labelledby="tab-sheet" tabindex="0" hidden>
                     <span class="eyebrow">IDENTIDADE & HISTÓRIA</span><h2>A ficha por trás da aventura.</h2>
@@ -87,7 +87,7 @@
                     <details><summary>Personalizar texto e números</summary>
                       <label for="font">Fonte do nome e da vida</label><select id="font"></select>
                       <div class="grid"><div><label for="nameColor">Cor dos textos</label><input id="nameColor" type="color"></div><div><label for="nameSize">Tamanho do nome</label><input id="nameSize" type="number" min="12" max="60" step="1"></div></div>
-                      <label class="check" for="showHp"><input id="showHp" type="checkbox"> Mostrar números de vida</label><p class="fine">As fontes dependem das instaladas no computador do OBS.</p>
+                      <label class="check" for="showHp"><input id="showHp" type="checkbox"> Mostrar números junto da barra</label><p class="fine">As fontes dependem das instaladas no computador do OBS.</p>
                     </details>
                     <details class="danger-zone"><summary>Substituir link do OBS</summary><p class="fine">O link antigo deixará de funcionar. Você precisará atualizar a URL no OBS.</p><button id="rotateOverlay">Gerar novo link</button></details>
                   </section>

@@ -10,6 +10,11 @@ export const fitDefaults={
  'Dark':{x:18.5,y:49,w:72,h:12},'Floresta':{x:20,y:49,w:68,h:13},'Céu':{x:20,y:49,w:68,h:13}
 };
 export const fonts=['Arial','Georgia','Verdana','Trebuchet MS','Tahoma','Times New Roman','Courier New','Impact','Palatino Linotype','Book Antiqua','Garamond','Cambria','Candara','Consolas','Lucida Console','Comic Sans MS','Segoe UI','Century Gothic','Franklin Gothic Medium','Brush Script MT','Lucida Handwriting','Monotype Corsiva','Copperplate','Papyrus','fantasy','cursive','monospace','serif','sans-serif'];
+export function healthSegments(s) {
+  const hp = Math.max(0, Number(s.hp) || 0), extra = Math.max(0, Number(s.extra_hp) || 0);
+  const max = Math.max(1, Number(s.max_hp) || 1), scale = Math.max(max, hp + extra);
+  return { normal: hp / scale * 100, extra: extra / scale * 100, reinforced: hp >= max && extra > 0 };
+}
 export function createBar(s, doc = document) {
   const wrap = doc.createElement('div');
   wrap.className = 'obs-bar bar-wrap';
@@ -19,15 +24,25 @@ export function createBar(s, doc = document) {
   Object.assign(track.style, { left: fit.x + '%', top: fit.y + '%', width: fit.w + '%', height: fit.h + '%' });
   const fill = doc.createElement('div');
   fill.className = 'bar-fill';
-  const percent = Number.isFinite(s.hp / s.max_hp) ? s.hp / s.max_hp * 100 : 0;
-  fill.style.width = Math.min(100, Math.max(0, percent)) + '%';
+  const segments = healthSegments(s);
+  fill.style.width = segments.normal + '%';
   fill.style.background = `linear-gradient(90deg,${s.grad1},${s.grad2})`;
   track.append(fill);
+  if (segments.extra > 0) {
+    const extra = doc.createElement('div'); extra.className = 'bar-extra-fill';
+    extra.style.left = segments.normal + '%'; extra.style.width = segments.extra + '%';
+    track.append(extra);
+  }
   const img = doc.createElement('img');
   img.className = 'bar-frame';
   img.alt = '';
   img.src = s.bar === 'Personalizada' && s.custom_bar ? s.custom_bar : bars[s.bar] || bars['Pixel Art'];
   wrap.append(track, img);
+  if (segments.reinforced) {
+    const outline = doc.createElement('div'); outline.className = 'bar-reinforcement';
+    Object.assign(outline.style, { left: fit.x + '%', top: fit.y + '%', width: fit.w + '%', height: fit.h + '%' });
+    wrap.append(outline);
+  }
   return wrap;
 }
 
@@ -53,17 +68,25 @@ export function renderOverlay(root, data) {
   Object.assign(name.style, { fontFamily: data.font, color: data.name_color, fontSize: data.name_size + 'px' });
   left.append(name);
   const right = element('obs-right');
+  if (data.hp_display === 'numbers') {
+    const hp = element('obs-health-numbers', data.hp + '/' + data.max_hp);
+    Object.assign(hp.style, { fontFamily: data.font, color: data.name_color, fontSize: Math.max(22, data.name_size) + 'px' });
+    if (data.extra_hp > 0) {
+      const extra = doc.createElement('span'); extra.className = 'obs-extra-number';
+      extra.textContent = ' +' + data.extra_hp; hp.append(extra);
+    }
+    right.append(hp); root.replaceChildren(left, right); return;
+  }
+
   right.append(createBar(data, doc));
   if (data.show_hp) {
     const hp = element('obs-hp', `${data.hp} / ${data.max_hp} HP`);
     Object.assign(hp.style, { fontFamily: data.font, color: data.name_color, fontSize: Math.max(10, Math.round(data.name_size * .48)) + 'px' });
+    if (data.extra_hp > 0) {
+      const extra = doc.createElement('span'); extra.className = 'bar-extra-label';
+      extra.textContent = ' +' + data.extra_hp; hp.append(extra);
+    }
     right.append(hp);
-  }
-  if (data.extra_hp > 0) {
-    const extra = element('obs-extra', data.show_hp ? '+' + data.extra_hp + ' VIDA EXTRA' : '');
-    const track = element('extra-track'), fill = element('extra-fill');
-    fill.style.width = Math.min(100, data.extra_hp / data.max_hp * 100) + '%';
-    track.append(fill); extra.append(track); right.append(extra);
   }
   root.replaceChildren(left, right);
 }

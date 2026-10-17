@@ -1,4 +1,4 @@
-import { bars, fonts, fitDefaults, renderOverlay, createBar } from '../shared.js';
+import { bars, fonts, fitDefaults, renderOverlay, createBar, healthSegments } from '../shared.js';
 import { DraftStore, LatestRequest, characterFields, campaignFields, slots, validateCharacter, validateAppearance, normalizeHealth, adjustHealth } from './model.js';
 import { repository, unwrap } from './api.js';
 import { serialPoll } from './poll.js';
@@ -34,8 +34,9 @@ export function createApp({ db, doc = document, win = window, api = repository(d
     const b = doc.createElement('button'); b.type = 'button'; b.textContent = text; b.onclick = action; b.disabled = disabled; return b;
   }
   function renderPermissions() {
-    for (const id of ['charName', 'hp', 'extraHp', 'maxHp', 'notes', 'activeSlot', 'font', 'nameColor', 'nameSize', 'showHp', 'uploadSlot']) $(id).disabled = !editable();
+    for (const id of ['charName', 'hp', 'extraHp', 'maxHp', 'notes', 'activeSlot', 'font', 'nameColor', 'nameSize', 'hpDisplay', 'showHp', 'uploadSlot']) $(id).disabled = !editable();
     for (const id of ['saveCharacter', 'deleteCharacter', 'upload', 'rotateOverlay']) $(id).disabled = !editable() || busy.has('character');
+    $('showHp').disabled = !editable() || $('hpDisplay').value === 'numbers';
     $('upload').disabled = !owner() || busy.has('character');
     $('uploadSlot').disabled = !owner();
     show('portraitUpload', owner());
@@ -72,7 +73,7 @@ export function createApp({ db, doc = document, win = window, api = repository(d
     } finally { busy.delete(key); renderPermissions(); }
   }
   function formValues() {
-    return { name: $('charName').value, notes: $('notes').value, ...normalizeHealth(Number($('hp').value), Number($('maxHp').value), Number($('extraHp').value)), max_hp: Number($('maxHp').value), active_slot: $('activeSlot').value, font: $('font').value, name_color: $('nameColor').value, name_size: Number($('nameSize').value), show_hp: $('showHp').checked };
+    return { name: $('charName').value, notes: $('notes').value, ...normalizeHealth(Number($('hp').value), Number($('maxHp').value), Number($('extraHp').value)), max_hp: Number($('maxHp').value), active_slot: $('activeSlot').value, font: $('font').value, name_color: $('nameColor').value, name_size: Number($('nameSize').value), show_hp: $('showHp').checked, hp_display: $('hpDisplay').value };
   }
   function capture() {
     if (editable() && renderedId === characterId) chars.edit(characterId, formValues());
@@ -91,8 +92,11 @@ export function createApp({ db, doc = document, win = window, api = repository(d
     $('characterSubtitle').textContent = campaign().title + ' · ' + c.active_slot;
     $('maxHpReading').textContent = c.max_hp;
     const percent = c.max_hp > 0 ? Math.min(100, Math.max(0, c.hp / c.max_hp * 100)) : 0;
-    $('extraMeter').style.width = Math.min(100, (c.extra_hp || 0) / c.max_hp * 100) + '%';
-    $('hpMeter').style.width = percent + '%';
+    const segments = healthSegments(c);
+    $('extraMeter').style.width = segments.extra + '%';
+    $('extraMeter').style.left = segments.normal + '%';
+    $('hpMeter').style.width = segments.normal + '%';
+    $('hpMeter').parentElement.classList.toggle('reinforced', segments.reinforced);
     $('hpDescription').textContent = c.hp === 0 ? 'SEM PONTOS DE VIDA' : Math.round(percent) + '% DA VIDA MÁXIMA';
     renderPermissions(); drawCharacters();
     const conflicts = chars.conflicts(characterId);
@@ -131,7 +135,7 @@ export function createApp({ db, doc = document, win = window, api = repository(d
     show('noCharacter', !!campaignId && !c);
     if (!c) { renderedId = null; previewJson = ''; return; }
     const changed = renderedId !== characterId;
-    const mapping = { charName: 'name', notes: 'notes', hp: 'hp', extraHp: 'extra_hp', maxHp: 'max_hp', activeSlot: 'active_slot', font: 'font', nameColor: 'name_color', nameSize: 'name_size' };
+    const mapping = { charName: 'name', notes: 'notes', hp: 'hp', extraHp: 'extra_hp', maxHp: 'max_hp', activeSlot: 'active_slot', font: 'font', nameColor: 'name_color', nameSize: 'name_size', hpDisplay: 'hp_display' };
     for (const [id, field] of Object.entries(mapping)) if ($(id).value !== String(c[field] ?? 0)) $(id).value = c[field] ?? 0;
     $('showHp').checked = c.show_hp;
     $('hp').max = '1000000';
@@ -258,7 +262,7 @@ export function createApp({ db, doc = document, win = window, api = repository(d
     onError: () => { $('syncStatus').textContent = 'Sem sincronização. Seus rascunhos estão preservados.'; }
   });
   function bind(id, key, fn) { $(id).onclick = event => { event?.preventDefault(); return run(key, fn); }; }
-  for (const id of ['charName', 'hp', 'extraHp', 'maxHp', 'notes', 'activeSlot', 'font', 'nameColor', 'nameSize', 'showHp']) $(id).addEventListener('input', () => { capture(); preview(); });
+  for (const id of ['charName', 'hp', 'extraHp', 'maxHp', 'notes', 'activeSlot', 'font', 'nameColor', 'nameSize', 'hpDisplay', 'showHp']) $(id).addEventListener('input', () => { capture(); preview(); });
   for (const id of ['hp', 'maxHp']) $(id).addEventListener('change', () => {
     if (!editable()) return;
     const values = formValues();

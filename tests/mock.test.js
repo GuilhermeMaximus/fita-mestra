@@ -92,3 +92,9 @@ test('custom frame persists and becomes visible to independent OBS clients',t=>{
  assert.equal(createMockStore(file).execute('overlay',{token:c.overlay_token}).custom_bar,data);
  assert.throws(()=>run('saveCampaign',{id:'mesa',changes:{patch:{custom_bar:'x'},expected:{custom_bar:data}}}),/permitido/);
 });
+
+test('numeric health preference persists and is included in OBS data',t=>{
+ const {run,file}=fixture(t);
+ const c=run('saveCharacter',{id:'dorian',changes:{patch:{hp_display:'numbers'},expected:{hp_display:'bar'}}},'demo-player');
+ assert.equal(createMockStore(file).execute('overlay',{token:c.overlay_token}).hp_display,'numbers');
+});

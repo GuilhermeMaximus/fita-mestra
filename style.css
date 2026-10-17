@@ -219,3 +219,14 @@ html.reduce-motion *,html.reduce-motion *::before,html.reduce-motion *::after { 
 .extra-fill { display:block; height:100%; background:linear-gradient(90deg,#d99532,#ffe49a); transition:width .2s; }
 .obs-extra { margin:12px auto 0; width:75%; text-align:center; font:bold 12px Arial; text-shadow:0 1px 4px #000; }
 .obs-extra .extra-track { margin-top:5px; }
+
+.obs-health-numbers { text-align:center; font-weight:700; font-variant-numeric:tabular-nums; text-shadow:0 2px 5px #000; overflow-wrap:anywhere; line-height:1.35; padding:12px 4px; }
+.obs-extra-number { color:#ffd577; white-space:nowrap; }
+
+/* Extra health shares the regular track, including custom-frame fits. */
+.bar-extra-fill { position:absolute; top:0; height:100%; background:#8cddff; transition:width .25s,left .25s; }
+.bar-reinforcement { position:absolute; z-index:2; pointer-events:none; border-radius:3px; box-shadow:0 0 0 2px #8cddff,0 0 7px #8cddff80; }
+.bar-extra-label { color:#8cddff; }
+.vital-track { position:relative; }
+.vital-track #extraMeter { position:absolute; top:0; background:#8cddff; border-radius:0; transition:width .25s,left .25s; }
+.vital-track.reinforced { box-shadow:0 0 0 2px #8cddff,0 0 7px #8cddff80; }
