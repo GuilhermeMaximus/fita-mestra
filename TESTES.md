@@ -42,7 +42,7 @@ O servidor atende apenas no endereço local, não habilita CORS e rejeita origen
 
 1. Crie um projeto Supabase separado, por exemplo **fita-mestra-test**. Não use as credenciais de produção.
 2. No SQL Editor desse projeto novo e vazio, execute `supabase/schema.sql`.
-3. Em seguida, execute `supabase/migrations/202610170001_reliability.sql`. Em um projeto já atualizado, não reaplique a base inicial.
+3. Em seguida, execute `supabase/migrations/202610170001_reliability.sql` e depois `supabase/migrations/202610170002_health_and_bars.sql`. Em um projeto já atualizado, não reaplique a base inicial.
 4. Copie `config.test.example.js` para `config.test.js`. Preencha com a URL HTTPS e a chave pública **publishable/anon** do projeto de teste. Nunca use `service_role` ou secret key no navegador.
 5. Em Auth → URL Configuration, configure o endereço local e permita o retorno `http://127.0.0.1:4173/index.html`. Configure o envio de e-mails para testar confirmação e recuperação.
 6. No PowerShell, gere um build usando essa configuração:
@@ -85,3 +85,16 @@ pnpm test
 Os testes do mock usam diretórios temporários próprios; não restauram nem alteram `.local-test/data.json`.
 
 Referências oficiais: [Supabase local development](https://supabase.com/docs/guides/local-development), [CLI e requisitos](https://supabase.com/docs/guides/local-development/cli/getting-started), [testes de banco e RLS](https://supabase.com/docs/guides/database/testing).
+
+## Atualização: permissões, vida extra e barras próprias
+
+Em um banco já instalado, aplique também `supabase/migrations/202610170002_health_and_bars.sql`, depois da migração `202610170001_reliability.sql`. Em banco vazio, execute primeiro `supabase/schema.sql` e depois as duas migrações em ordem. Não reaplique o schema inicial em um banco existente.
+
+- Jogadores editam a própria ficha, vida normal, vida extra e estado em cena. Somente o mestre envia retratos e barras.
+- A vida normal continua limitada ao máximo; o excedente digitado vira vida extra. Exemplo: 120/100 vira 100/100 +20 extra. Também é possível ter 40/100 +20 extra.
+- Os botões −1/−5 consomem vida extra antes da normal. O campo de vida normal permite editar somente a parcela normal; o campo extra pode ser editado independentemente. Reduzir o máximo converte o excedente em extra.
+- Em Configurar campanha, envie uma imagem de exatamente 2172 × 724 pixels (PNG, JPG ou WebP até 5 MB). O aplicativo valida as dimensões antes do upload. Use transparência onde o preenchimento deve aparecer, selecione Personalizada e salve a aparência. Ajuste o encaixe conforme a arte.
+- O OBS mostra vida extra em uma faixa dourada separada; a escala da faixa usa a vida máxima como referência e o número mostra o valor completo.
+- A nova migração inclui as barras na limpeza de arquivos sem uso. Não há alteração automática no seu Supabase remoto.
+
+Após atualizar: `pnpm build`; reinicie o servidor mock com `pnpm demo` para carregar as novas regras. Os dados locais existentes são preservados.

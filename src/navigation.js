@@ -59,7 +59,7 @@ export function createNavigation(doc) {
   for (const b of doc.querySelectorAll('[data-auth-mode]')) b.onclick = () => auth(b.dataset.authMode);
   $('authForm').onsubmit = event => { event.preventDefault(); $({ login: 'login', signup: 'signup', reset: 'resetPassword' }[authMode]).click(); };
   function revealInvalid() {
-    const field = ['charName', 'maxHp', 'hp', 'notes', 'nameSize'].map($).find(el => !el.checkValidity());
+    const field = ['charName', 'maxHp', 'hp', 'extraHp', 'notes', 'nameSize'].map($).find(el => !el.checkValidity());
     if (field) { screen(); select(field.closest('[data-panel]').dataset.panel); field.focus(); field.reportValidity(); return true; }
     return false;
   }

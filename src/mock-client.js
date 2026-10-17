@@ -1,3 +1,4 @@
+import { validateBarFile } from './images.js';
 export async function mockRequest(op, args = {}, userId = null) {
   const response = await fetch('/__mock/api', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -26,6 +27,14 @@ export async function createMockClient(win = window) {
     saveCampaign: (id, changes) => request('saveCampaign', { id, changes }),
     deleteCharacter: id => request('deleteCharacter', { id }),
     rpc: (name, args) => request('rpc', { name, args }),
+    async uploadBar({ campaignId, userId, file, current = () => true }) {
+      await validateBarFile(file);
+      const data = await new Promise((resolve, reject) => {
+        const reader = new win.FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file);
+      });
+      if (!current()) throw Error('A sessão mudou durante o envio.');
+      return mockRequest('uploadBar', { id: campaignId, data }, userId);
+    },
     async uploadPortrait({ characterId, slot, file, userId, current = () => true }) {
       if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || !file.size || file.size > 5 * 1024 * 1024) throw Error('Use PNG, JPG ou WebP de até 5 MB.');
       const data = await new Promise((resolve, reject) => {

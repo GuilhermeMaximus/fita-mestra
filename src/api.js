@@ -1,3 +1,4 @@
+import { validateBarFile } from './images.js';
 export function unwrap(result) {
   if (result.error) throw result.error;
   return result.data;
@@ -14,6 +15,15 @@ export function repository(db) {
     saveCharacter: (id, changes) => rpc('save_character', { target_id: id, ...changes }),
     saveCampaign: (id, changes) => rpc('save_campaign', { target_id: id, ...changes }),
     deleteCharacter: async id => unwrap(await db.from('characters').delete().eq('id', id).select('id').single()),
+    async uploadBar({ campaignId, userId, file, current = () => true }) {
+      await validateBarFile(file);
+      if (!current()) throw Error('A sessão mudou durante o envio.');
+      const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }[file.type];
+      const bucket = db.storage.from('portraits'), path = userId + '/' + crypto.randomUUID() + '.' + ext;
+      unwrap(await bucket.upload(path, file, { contentType: file.type, upsert: false }));
+      if (!current()) throw Error('A sessão mudou durante o envio.');
+      return rpc('replace_bar', { target_id: campaignId, image_url: bucket.getPublicUrl(path).data.publicUrl });
+    },
     async uploadPortrait({ characterId, slot, userId, file, current = () => true }) {
       const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }[file.type];
       if (!ext || file.size > 5 * 1024 * 1024 || file.size === 0) throw Error('Use PNG, JPG ou WebP de até 5 MB.');

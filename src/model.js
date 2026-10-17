@@ -1,6 +1,6 @@
 export const slots = ['Normal', 'Combate', 'Machucado', 'Inconsciente'];
-export const characterFields = ['name', 'notes', 'hp', 'max_hp', 'active_slot', 'font', 'name_color', 'name_size', 'show_hp'];
-export const campaignFields = ['bar', 'grad1', 'grad2', 'fits'];
+export const characterFields = ['name', 'notes', 'hp', 'extra_hp', 'max_hp', 'active_slot', 'font', 'name_color', 'name_size', 'show_hp'];
+export const campaignFields = ['bar', 'custom_bar', 'grad1', 'grad2', 'fits'];
 export const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 // A draft belongs to a record, never to the currently selected screen.
@@ -10,6 +10,7 @@ export class DraftStore {
   remove(id) { this.entries.delete(id); }
   get(id) { return this.entries.get(id); }
   ingest(row) {
+    row = { ...(this.fields.includes('extra_hp') ? { extra_hp: 0 } : {}), ...(this.fields.includes('custom_bar') ? { custom_bar: null } : {}), ...row };
     const entry = this.get(row.id);
     if (entry && Number.isFinite(row.version) && row.version < entry.remote.version) return entry;
     if (!entry) {
@@ -66,6 +67,7 @@ export function validateCharacter(d) {
   if (d.notes.length > 50000) throw Error('As anotações devem ter no máximo 50.000 caracteres.');
   if (!Number.isInteger(d.max_hp) || d.max_hp < 1 || d.max_hp > 1000000) throw Error('Vida máxima: informe um inteiro de 1 a 1.000.000.');
   if (!Number.isInteger(d.hp) || d.hp < 0 || d.hp > d.max_hp) throw Error('A vida atual deve estar entre zero e a vida máxima.');
+  if (!Number.isInteger(d.extra_hp ?? 0) || (d.extra_hp ?? 0) < 0 || (d.extra_hp ?? 0) > 1000000) throw Error('Vida extra: informe um inteiro de 0 a 1.000.000.');
   if (!slots.includes(d.active_slot)) throw Error('Estado inválido.');
   if (!/^#[0-9a-f]{6}$/i.test(d.name_color)) throw Error('Cor de texto inválida.');
   if (!Number.isInteger(d.name_size) || d.name_size < 12 || d.name_size > 60) throw Error('Tamanho do nome: informe um inteiro de 12 a 60.');
@@ -74,6 +76,8 @@ export function validateCharacter(d) {
 }
 
 export function validateAppearance(d, barNames) {
+  barNames = [...barNames, 'Personalizada'];
+  if (d.bar === 'Personalizada' && !d.custom_bar) throw Error('Envie uma barra personalizada primeiro.');
   if (!barNames.includes(d.bar)) throw Error('Modelo de barra inválido.');
   for (const key of ['grad1', 'grad2']) if (!/^#[0-9a-f]{6}$/i.test(d[key])) throw Error('Cor de preenchimento inválida.');
   if (!d.fits || Array.isArray(d.fits) || typeof d.fits !== 'object') throw Error('Encaixes inválidos.');
@@ -84,4 +88,12 @@ export function validateAppearance(d, barNames) {
     }
     if (fit.x + fit.w > 100 || fit.y + fit.h > 100) throw Error('O preenchimento deve caber dentro da moldura.');
   }
+}
+
+export function normalizeHealth(hp, max, extra = 0) {
+  return { hp: Math.min(hp, max), extra_hp: extra + Math.max(0, hp - max) };
+}
+export function adjustHealth(hp, max, extra, delta) {
+  if (delta < 0) { const absorbed = Math.min(extra, -delta); return { hp: Math.max(0, hp + delta + absorbed), extra_hp: extra - absorbed }; }
+  return normalizeHealth(hp + delta, max, extra);
 }

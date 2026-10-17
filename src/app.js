@@ -1,5 +1,5 @@
 import { bars, fonts, fitDefaults, renderOverlay, createBar } from '../shared.js';
-import { DraftStore, LatestRequest, characterFields, campaignFields, slots, validateCharacter, validateAppearance } from './model.js';
+import { DraftStore, LatestRequest, characterFields, campaignFields, slots, validateCharacter, validateAppearance, normalizeHealth, adjustHealth } from './model.js';
 import { repository, unwrap } from './api.js';
 import { serialPoll } from './poll.js';
 import { createNavigation } from './navigation.js';
@@ -34,8 +34,12 @@ export function createApp({ db, doc = document, win = window, api = repository(d
     const b = doc.createElement('button'); b.type = 'button'; b.textContent = text; b.onclick = action; b.disabled = disabled; return b;
   }
   function renderPermissions() {
-    for (const id of ['charName', 'hp', 'maxHp', 'notes', 'activeSlot', 'font', 'nameColor', 'nameSize', 'showHp', 'uploadSlot']) $(id).disabled = !editable();
+    for (const id of ['charName', 'hp', 'extraHp', 'maxHp', 'notes', 'activeSlot', 'font', 'nameColor', 'nameSize', 'showHp', 'uploadSlot']) $(id).disabled = !editable();
     for (const id of ['saveCharacter', 'deleteCharacter', 'upload', 'rotateOverlay']) $(id).disabled = !editable() || busy.has('character');
+    $('upload').disabled = !owner() || busy.has('character');
+    $('uploadSlot').disabled = !owner();
+    show('portraitUpload', owner());
+    $('customBarUpload').disabled = !owner() || busy.has('campaign');
     $('saveCharacter').disabled ||= !chars.dirty(characterId);
     $('saveCharacter').textContent = busy.has('character') ? 'Salvando…' : 'Salvar alterações';
     $('discardDraft').disabled = !editable() || !chars.dirty(characterId) || busy.has('character');
@@ -61,14 +65,14 @@ export function createApp({ db, doc = document, win = window, api = repository(d
     catch (error) {
       if (current()) {
         const text = error?.message || String(error);
-        message(error.code === 'PGRST202' ? 'O banco precisa da migração v2. Consulte a seção de atualização no LEIA-ME.md; não reaplique o schema inicial.' : /CONFLITO/.test(text) ? 'Outra pessoa alterou este campo. Seu rascunho foi preservado. Revise o conflito abaixo.' : text, true);
+        message(error.code === 'PGRST202' ? 'O banco precisa da migração v2. Consulte a seção de atualização no README.md; não reaplique o schema inicial.' : /CONFLITO/.test(text) ? 'Outra pessoa alterou este campo. Seu rascunho foi preservado. Revise o conflito abaixo.' : text, true);
         if (/CONFLITO/.test(text)) await refreshCampaigns().catch(() => {});
         if (key === 'character') navigation.revealInvalid();
       }
     } finally { busy.delete(key); renderPermissions(); }
   }
   function formValues() {
-    return { name: $('charName').value, notes: $('notes').value, hp: Number($('hp').value), max_hp: Number($('maxHp').value), active_slot: $('activeSlot').value, font: $('font').value, name_color: $('nameColor').value, name_size: Number($('nameSize').value), show_hp: $('showHp').checked };
+    return { name: $('charName').value, notes: $('notes').value, ...normalizeHealth(Number($('hp').value), Number($('maxHp').value), Number($('extraHp').value)), max_hp: Number($('maxHp').value), active_slot: $('activeSlot').value, font: $('font').value, name_color: $('nameColor').value, name_size: Number($('nameSize').value), show_hp: $('showHp').checked };
   }
   function capture() {
     if (editable() && renderedId === characterId) chars.edit(characterId, formValues());
@@ -87,6 +91,7 @@ export function createApp({ db, doc = document, win = window, api = repository(d
     $('characterSubtitle').textContent = campaign().title + ' · ' + c.active_slot;
     $('maxHpReading').textContent = c.max_hp;
     const percent = c.max_hp > 0 ? Math.min(100, Math.max(0, c.hp / c.max_hp * 100)) : 0;
+    $('extraMeter').style.width = Math.min(100, (c.extra_hp || 0) / c.max_hp * 100) + '%';
     $('hpMeter').style.width = percent + '%';
     $('hpDescription').textContent = c.hp === 0 ? 'SEM PONTOS DE VIDA' : Math.round(percent) + '% DA VIDA MÁXIMA';
     renderPermissions(); drawCharacters();
@@ -100,7 +105,7 @@ export function createApp({ db, doc = document, win = window, api = repository(d
     const key = JSON.stringify([c.images, editable()]);
     if (key === galleryJson) {
       for (const tile of $('portraitGallery').children) {
-        const selected = tile.dataset.slot === $('uploadSlot').value;
+        const selected = tile.dataset.slot === (owner() ? $('uploadSlot').value : c.active_slot);
         tile.classList.toggle('active', selected); tile.setAttribute('aria-pressed', String(selected));
       }
       return;
@@ -108,11 +113,13 @@ export function createApp({ db, doc = document, win = window, api = repository(d
     galleryJson = key; $('portraitGallery').replaceChildren();
     for (const slot of slots) {
       const tile = button(slot, () => {
-        $('uploadSlot').value = slot; gallery();
+        if (owner()) $('uploadSlot').value = slot;
+        else { $('activeSlot').value = slot; capture(); preview(); }
+        gallery();
       }, !editable());
-      tile.className = 'portrait-tile' + ($('uploadSlot').value === slot ? ' active' : '');
+      tile.className = 'portrait-tile' + ((owner() ? $('uploadSlot').value : c.active_slot) === slot ? ' active' : '');
       tile.dataset.slot = slot;
-      tile.setAttribute('aria-pressed', String($('uploadSlot').value === slot));
+      tile.setAttribute('aria-pressed', String((owner() ? $('uploadSlot').value : c.active_slot) === slot));
       if (c.images?.[slot]) { const img = doc.createElement('img'); img.src = c.images[slot]; img.alt = ''; img.className = 'portrait-thumb'; tile.prepend(img); }
       else { const placeholder = doc.createElement('span'); placeholder.className = 'portrait-thumb empty'; placeholder.textContent = 'Sem imagem'; tile.prepend(placeholder); }
       $('portraitGallery').append(tile);
@@ -124,17 +131,17 @@ export function createApp({ db, doc = document, win = window, api = repository(d
     show('noCharacter', !!campaignId && !c);
     if (!c) { renderedId = null; previewJson = ''; return; }
     const changed = renderedId !== characterId;
-    const mapping = { charName: 'name', notes: 'notes', hp: 'hp', maxHp: 'max_hp', activeSlot: 'active_slot', font: 'font', nameColor: 'name_color', nameSize: 'name_size' };
-    for (const [id, field] of Object.entries(mapping)) if ($(id).value !== String(c[field])) $(id).value = c[field];
+    const mapping = { charName: 'name', notes: 'notes', hp: 'hp', extraHp: 'extra_hp', maxHp: 'max_hp', activeSlot: 'active_slot', font: 'font', nameColor: 'name_color', nameSize: 'name_size' };
+    for (const [id, field] of Object.entries(mapping)) if ($(id).value !== String(c[field] ?? 0)) $(id).value = c[field] ?? 0;
     $('showHp').checked = c.show_hp;
-    $('hp').max = String(c.max_hp);
+    $('hp').max = '1000000';
     if (changed) { $('uploadSlot').value = c.active_slot; $('upload').value = ''; }
     $('obsLink').value = new URL('obs.html?id=' + encodeURIComponent(c.overlay_token), win.location.href).href;
     renderedId = characterId;
     gallery(); renderPermissions(); preview();
   }
   function drawCharacters() {
-    const key = JSON.stringify([characterId, characters.map(c => [c.id, c.name, c.hp, c.max_hp, chars.dirty(c.id)])]);
+    const key = JSON.stringify([characterId, characters.map(c => [c.id, c.name, c.hp, c.max_hp, c.extra_hp, chars.dirty(c.id)])]);
     if (rosterJson === key) return;
     rosterJson = key;
     const focused = $('characters').contains(doc.activeElement) ? doc.activeElement?.dataset.character : null;
@@ -145,7 +152,7 @@ export function createApp({ db, doc = document, win = window, api = repository(d
       const avatar = doc.createElement('span'); avatar.className = 'character-avatar'; avatar.setAttribute('aria-hidden', 'true'); avatar.textContent = c.name.split(/\s+/).filter(Boolean).slice(0, 2).map(n => n[0]).join('');
       const summary = doc.createElement('span'); summary.className = 'character-summary';
       const name = doc.createElement('strong'); name.textContent = c.name;
-      const hp = doc.createElement('small'); hp.textContent = `${c.hp} / ${c.max_hp} HP${chars.dirty(c.id) ? ' · Rascunho' : ''}`;
+      const hp = doc.createElement('small'); hp.textContent = `${c.hp} / ${c.max_hp} HP${c.extra_hp ? ' +' + c.extra_hp + ' extra' : ''}${chars.dirty(c.id) ? ' · Rascunho' : ''}`;
       summary.append(name, hp); b.append(avatar, summary);
       b.classList.toggle('selected', c.id === characterId);
       b.dataset.character = c.id;
@@ -163,11 +170,11 @@ export function createApp({ db, doc = document, win = window, api = repository(d
     for (const id of ['grad1', 'grad2']) if (doc.activeElement !== $(id)) $(id).value = d[id];
     const fit = { ...fitDefaults[d.bar], ...d.fits?.[d.bar] };
     for (const [key, id] of Object.entries({ x: 'fitX', y: 'fitY', w: 'fitW', h: 'fitH' })) if (doc.activeElement !== $(id)) $(id).value = fit[key];
-    if (!$('barOptions').children.length || barOwner !== owner()) {
-      barOwner = owner(); $('barOptions').replaceChildren();
-      for (const name of Object.keys(bars)) {
+    if (!$('barOptions').children.length || barOwner !== String(owner()) + d.custom_bar) {
+      barOwner = String(owner()) + d.custom_bar; $('barOptions').replaceChildren();
+      for (const name of Object.keys({ ...bars, ...(d.custom_bar ? { Personalizada: d.custom_bar } : {}) })) {
       const b = button(name, () => { appearances.edit(campaignId, { bar: name }); renderAppearance(); preview(); }, !owner());
-      const img = doc.createElement('img'); img.src = bars[name]; img.alt = ''; img.loading = 'lazy'; img.width = 285; img.height = 95; b.prepend(img);
+      const img = doc.createElement('img'); img.src = name === 'Personalizada' ? d.custom_bar : bars[name]; img.alt = ''; img.loading = 'lazy'; img.width = 285; img.height = 95; b.prepend(img);
       b.dataset.bar = name; $('barOptions').append(b);
       }
     }
@@ -251,12 +258,20 @@ export function createApp({ db, doc = document, win = window, api = repository(d
     onError: () => { $('syncStatus').textContent = 'Sem sincronização. Seus rascunhos estão preservados.'; }
   });
   function bind(id, key, fn) { $(id).onclick = event => { event?.preventDefault(); return run(key, fn); }; }
-  for (const id of ['charName', 'hp', 'maxHp', 'notes', 'activeSlot', 'font', 'nameColor', 'nameSize', 'showHp']) $(id).addEventListener('input', () => { capture(); if (id === 'maxHp') $('hp').max = $('maxHp').value; preview(); });
+  for (const id of ['charName', 'hp', 'extraHp', 'maxHp', 'notes', 'activeSlot', 'font', 'nameColor', 'nameSize', 'showHp']) $(id).addEventListener('input', () => { capture(); preview(); });
+  for (const id of ['hp', 'maxHp']) $(id).addEventListener('change', () => {
+    if (!editable()) return;
+    const values = formValues();
+    $('hp').value = values.hp; $('extraHp').value = values.extra_hp;
+    capture(); preview();
+  });
+  $('activeSlot').addEventListener('change', gallery);
   $('uploadSlot').onchange = gallery;
   $('discardDraft').onclick = () => { if (chars.dirty(characterId) && win.confirm('Descartar as alterações deste personagem em todas as abas?')) { chars.reset(characterId); renderCharacter(); drawCharacters(); } };
   options($('activeSlot'), slots.map(s => [s, s])); options($('uploadSlot'), slots.map(s => [s, s])); options($('font'), fonts.map(f => [f, f]));
   for (const [id, delta] of [['minus', -1], ['plus', 1], ['minus5', -5], ['plus5', 5]]) $(id).onclick = () => {
-    $('hp').value = Math.max(0, Math.min(Number($('maxHp').value) || 1, (Number($('hp').value) || 0) + delta)); capture(); preview();
+    const c = formValues(), next = adjustHealth(c.hp, c.max_hp, c.extra_hp, delta);
+    $('hp').value = next.hp; $('extraHp').value = next.extra_hp; capture(); preview();
   };
   $('campaignSelect').onchange = () => run('selection:' + $('campaignSelect').value, () => selectCampaign($('campaignSelect').value));
   bind('createCampaign', 'campaignCreate', async current => {
@@ -304,7 +319,7 @@ export function createApp({ db, doc = document, win = window, api = repository(d
     // Capture identity AND slot before the first asynchronous step.
     const target = { characterId, slot: $('uploadSlot').value, userId, file };
     return run('character', async current => {
-      if (!editable()) throw Error('Sem permissão.');
+      if (!owner()) throw Error('Somente o mestre pode enviar imagens.');
       capture();
       const row = await api.uploadPortrait({ ...target, current });
       if (!current()) return;
@@ -312,6 +327,18 @@ export function createApp({ db, doc = document, win = window, api = repository(d
       chars.ingest(row);
       if (characterId === target.characterId) { $('upload').value = ''; renderCharacter(); }
       message(`Imagem ${target.slot} salva. Selecione o estado e salve a ficha para ativá-lo.`);
+    });
+  };
+  $('customBarUpload').onchange = () => {
+    const file = $('customBarUpload').files?.[0], id = campaignId, uid = userId;
+    if (!file) return;
+    return run('campaign', async current => {
+      if (!owner()) throw Error('Somente o mestre.');
+      const row = await api.uploadBar({ campaignId: id, userId: uid, file, current });
+      if (!current()) return;
+      appearances.ingest(row);
+      if (campaignId === id) { $('customBarUpload').value = ''; renderAppearance(); preview(); }
+      message('Barra enviada. Selecione Personalizada e salve a aparência para ativar.');
     });
   };
   for (const id of ['grad1', 'grad2']) $(id).oninput = () => { if (owner()) { appearances.edit(campaignId, { [id]: $(id).value }); renderAppearance(); preview(); } };

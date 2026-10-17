@@ -16,7 +16,7 @@
   </header>
   <main id="main">
     <div id="message" role="status" aria-live="polite"></div>
-    <section id="setup" class="panel narrow hidden"><h2>Configuração necessária</h2><p>Confira as instruções de instalação no LEIA-ME.md.</p></section>
+    <section id="setup" class="panel narrow hidden"><h2>Configuração necessária</h2><p>Confira as instruções de instalação no README.md.</p></section>
     <section id="auth" class="auth-layout">
       <div class="auth-story"><div class="eyebrow">FITA MESTRA / ESTÚDIO DE RPG</div><h1>Menos preparação.<br><em>Mais história.</em></h1><p>Suas fichas, sua campanha e sua transmissão.<br>Um espaço simples para continuar a aventura.</p><div class="auth-features"><span>01 / Organize os personagens</span><span>02 / Acompanhe a sessão</span><span>03 / Transmita com o OBS</span></div></div>
       <div class="auth-form panel"><span class="eyebrow">BEM-VINDO AO ESTÚDIO</span><h2 id="authTitle">Sua próxima sessão começa aqui.</h2><p id="authHelp" class="muted">Entre para continuar suas campanhas.</p>
@@ -64,7 +64,7 @@
                     <p class="muted">Cuide da vida. Continue a história.</p>
                     <div class="vital-display"><label for="hp">PONTOS DE VIDA</label><div class="hp-reading"><input id="hp" type="number" min="0" max="1000000" step="1"><span>/ <span id="maxHpReading">100</span></span></div><div class="vital-track" aria-hidden="true"><span id="hpMeter"></span></div><p id="hpDescription" class="fine"></p></div>
                     <div class="hp-controls"><span class="sr-only">Ajustar pontos de vida</span><button id="minus5" aria-label="Reduzir vida em 5">−5</button><button id="minus" aria-label="Reduzir vida em 1">−1</button><button id="plus" aria-label="Aumentar vida em 1">+1</button><button id="plus5" aria-label="Aumentar vida em 5">+5</button></div>
-                    <div class="state-field"><label for="activeSlot">Retrato em cena</label><select id="activeSlot"></select><p class="fine">A troca é manual. Salve para atualizar a transmissão.</p></div>
+                    <div class="extra-health"><label for="extraHp">Vida extra</label><input id="extraHp" type="number" min="0" max="1000000" step="1" value="0"><p class="fine">Independente da vida normal. Valores acima do máximo viram vida extra. Os botões de dano consomem a vida extra primeiro.</p><div class="extra-track" aria-hidden="true"><span id="extraMeter" class="extra-fill"></span></div></div><div class="state-field"><label for="activeSlot">Retrato em cena</label><select id="activeSlot"></select><p class="fine">A troca é manual. Salve para atualizar a transmissão.</p></div>
                   </section>
                   <section class="panel" id="panel-sheet" data-panel="sheet" role="tabpanel" aria-labelledby="tab-sheet" tabindex="0" hidden>
                     <span class="eyebrow">IDENTIDADE & HISTÓRIA</span><h2>A ficha por trás da aventura.</h2>
@@ -74,11 +74,11 @@
                     <details class="danger-zone"><summary>Excluir personagem</summary><p class="muted">Remove a ficha e todos os retratos. Não dá para desfazer.</p><button id="deleteCharacter" class="danger">Excluir este personagem</button></details>
                   </section>
                   <section class="panel" id="panel-portraits" data-panel="portraits" role="tabpanel" aria-labelledby="tab-portraits" tabindex="0" hidden>
-                    <span class="eyebrow">CADA CENA, UMA VERSÃO</span><h2>Retratos do personagem</h2><p class="muted">Escolha uma variação para enviar a imagem. O retrato em cena é definido na aba Sessão.</p>
+                    <span class="eyebrow">CADA CENA, UMA VERSÃO</span><h2>Retratos do personagem</h2><p class="muted">Mestres selecionam uma variação para enviar a imagem. Jogadores selecionam o retrato em cena e salvam a alteração. O estado também pode ser escolhido na aba Sessão.</p>
                     <div id="portraitGallery" class="portrait-gallery" aria-label="Variações de retrato"></div>
-                    <label for="uploadSlot">Enviar imagem para</label><select id="uploadSlot"></select>
+                    <div id="portraitUpload"><label for="uploadSlot">Enviar imagem para</label><select id="uploadSlot"></select>
                     <label for="upload">Arquivo (PNG, JPG ou WebP, até 5 MB)</label><input id="upload" type="file" accept="image/png,image/jpeg,image/webp">
-                    <p class="fine">O envio salva a imagem imediatamente. Na ausência de uma variação, o OBS usa o retrato Normal.</p>
+                    </div><p class="fine">Somente o mestre pode enviar imagens. Jogadores podem trocar o retrato em cena na aba Sessão.</p><p class="fine">O envio salva a imagem imediatamente. Na ausência de uma variação, o OBS usa o retrato Normal.</p>
                   </section>
                   <section class="panel" id="panel-obs" data-panel="obs" role="tabpanel" aria-labelledby="tab-obs" tabindex="0" hidden>
                     <span class="eyebrow">DA MESA PARA A TELA</span><h2>Seu personagem no OBS</h2>
@@ -104,7 +104,7 @@
             <section class="panel" id="appearance"><div class="section-heading"><h2>Escolha o clima da aventura.</h2><span class="tag">7 MODELOS</span></div><p class="muted">A barra e as cores são compartilhadas por todos os personagens da campanha.</p>
               <div id="ownerOnly">
                 <div id="barOptions" class="bar-options" aria-label="Modelos de barra"></div>
-                <div class="appearance-tools"><div class="row"><div><label for="grad1">Cor inicial</label><input type="color" id="grad1"></div><div><label for="grad2">Cor final</label><input type="color" id="grad2"></div></div><div><span class="eyebrow">PRÉVIA DO PREENCHIMENTO</span><div id="campaignPreview"></div></div></div>
+                <label for="customBarUpload">Enviar barra personalizada — 2172 × 724 pixels</label><input id="customBarUpload" type="file" accept="image/png,image/jpeg,image/webp"><p class="fine">PNG, JPG ou WebP, até 5 MB. Prefira transparência na área de preenchimento. O envio salva o arquivo; selecione Personalizada e salve a aparência para ativar.</p><div class="appearance-tools"><div class="row"><div><label for="grad1">Cor inicial</label><input type="color" id="grad1"></div><div><label for="grad2">Cor final</label><input type="color" id="grad2"></div></div><div><span class="eyebrow">PRÉVIA DO PREENCHIMENTO</span><div id="campaignPreview"></div></div></div>
                 <details><summary>Ajuste avançado do preenchimento</summary><p class="fine">Posição e tamanho dentro da moldura, em porcentagem.</p><div class="grid"><div><label for="fitX">Posição X (%)</label><input type="number" id="fitX" step="0.1" min="0" max="100"><label for="fitY">Posição Y (%)</label><input type="number" id="fitY" step="0.1" min="0" max="100"></div><div><label for="fitW">Largura (%)</label><input type="number" id="fitW" step="0.1" min="1" max="100"><label for="fitH">Altura (%)</label><input type="number" id="fitH" step="0.1" min="1" max="100"></div></div><button id="resetFit" class="actions">Restaurar encaixe padrão</button></details>
                 <div id="campaignConflict" class="conflict hidden" role="status"><p>A aparência também foi alterada em outra sessão.</p><button id="campaignReload">Usar versão do servidor</button><button id="campaignKeep">Manter minhas alterações</button></div>
                 <div class="savebar"><p id="appearanceStatus" role="status"></p><button class="primary" id="saveCampaign">Salvar aparência</button></div>

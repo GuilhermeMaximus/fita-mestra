@@ -4,6 +4,7 @@ export const bars={
  'Dark':'assets/barra_dark.webp','Floresta':'assets/barra_floresta.webp','Céu':'assets/barra_ceu.webp'
 };
 export const fitDefaults={
+ 'Personalizada':{x:16.5,y:46.5,w:73.5,h:14},
  'Gótico':{x:17.3,y:43.8,w:72.3,h:12},'Pixel Art':{x:16.5,y:46.5,w:73.5,h:14},
  'Arco-íris':{x:19,y:47.5,w:70.5,h:13},'Steampunk':{x:20.5,y:47.5,w:67.5,h:13},
  'Dark':{x:18.5,y:49,w:72,h:12},'Floresta':{x:20,y:49,w:68,h:13},'Céu':{x:20,y:49,w:68,h:13}
@@ -25,7 +26,7 @@ export function createBar(s, doc = document) {
   const img = doc.createElement('img');
   img.className = 'bar-frame';
   img.alt = '';
-  img.src = bars[s.bar] || bars['Pixel Art'];
+  img.src = s.bar === 'Personalizada' && s.custom_bar ? s.custom_bar : bars[s.bar] || bars['Pixel Art'];
   wrap.append(track, img);
   return wrap;
 }
@@ -57,6 +58,12 @@ export function renderOverlay(root, data) {
     const hp = element('obs-hp', `${data.hp} / ${data.max_hp} HP`);
     Object.assign(hp.style, { fontFamily: data.font, color: data.name_color, fontSize: Math.max(10, Math.round(data.name_size * .48)) + 'px' });
     right.append(hp);
+  }
+  if (data.extra_hp > 0) {
+    const extra = element('obs-extra', data.show_hp ? '+' + data.extra_hp + ' VIDA EXTRA' : '');
+    const track = element('extra-track'), fill = element('extra-fill');
+    fill.style.width = Math.min(100, data.extra_hp / data.max_hp * 100) + '%';
+    track.append(fill); extra.append(track); right.append(extra);
   }
   root.replaceChildren(left, right);
 }

@@ -30,6 +30,9 @@ test('PostgreSQL migration, conflict detection, RLS, membership, token rotation 
     const migration = await readFile('supabase/migrations/202610170001_reliability.sql','utf8');
     await db.exec(migration);
     await db.exec(migration); // Safe repeat, including constraints and privileges.
+    const healthMigration = await readFile('supabase/migrations/202610170002_health_and_bars.sql','utf8');
+    await db.exec(healthMigration);
+    await db.exec(healthMigration);
     async function as(user, fn, role = 'authenticated') {
       await db.exec(`set role ${role}; select set_config('request.jwt.claim.sub','${user}',false);`);
       try { return await fn(); } finally { await db.exec('reset role'); }
@@ -62,15 +65,30 @@ test('PostgreSQL migration, conflict detection, RLS, membership, token rotation 
       await assert.rejects(as(player,()=>q('select * from public.save_character($1,$2,$3)',[masterCh.id,'{"notes":"other"}','{"notes":""}'])),/não encontrado|permissão/);
       await assert.rejects(as(owner,()=>q('select * from public.save_campaign($1,$2,$3)',[cid,'{"fits":{"Pixel Art":{"x":90,"y":0,"w":80,"h":10}}}','{"fits":{}}'])),/constraint/);
     });
-    const path = `${player}/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.png`;
+    const path = `${owner}/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.png`;
     const url = `https://project.supabase.co/storage/v1/object/public/portraits/${path}`;
     await q("insert into storage.objects(bucket_id,name) values('portraits',$1)",[path]);
     await t.test('upload retains other slots and cannot attach someone else file', async () => {
-      await as(player,()=>q('select public.replace_portrait($1,$2,$3)',[ch.id,'Normal',url]));
-      await as(player,()=>q('select public.replace_portrait($1,$2,$3)',[ch.id,'Combate',url]));
+      await as(owner,()=>q('select public.replace_portrait($1,$2,$3)',[ch.id,'Normal',url]));
+      await as(owner,()=>q('select public.replace_portrait($1,$2,$3)',[ch.id,'Combate',url]));
       const [row] = await as(player,()=>q('select images from public.characters where id=$1',[ch.id]));
       assert.equal(row.images.Normal,url); assert.equal(row.images.Combate,url);
-      await assert.rejects(as(owner,()=>q('select public.replace_portrait($1,$2,$3)',[ch.id,'Normal',url])),/Imagem inválida/);
+      await assert.rejects(as(player,()=>q('select public.replace_portrait($1,$2,$3)',[ch.id,'Normal',url])),/permissão/);
+    });
+    await t.test('extra health, custom bars and storage permissions', async () => {
+      const [health] = await save(player,{hp:120},{hp:40});
+      assert.equal(health.hp,100); assert.equal(health.extra_hp,20);
+      const [hurt] = await save(player,{hp:40},{hp:100});
+      assert.equal(hurt.extra_hp,20);
+      await assert.rejects(save(player,{extra_hp:-1},{extra_hp:20}),/constraint/);
+      await assert.rejects(as(player,()=>q("insert into storage.objects(bucket_id,name) values('portraits',$1)",[player+'/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb.png'])),/row-level security/);
+      await assert.rejects(as(player,()=>q('select public.replace_bar($1,$2)',[cid,url])),/mestre/);
+      await as(owner,()=>q('select public.replace_bar($1,$2)',[cid,url]));
+      await as(owner,()=>q('select public.save_campaign($1,$2,$3)',[cid,'{"bar":"Personalizada"}','{"bar":"Pixel Art"}']));
+      const [result] = await as('',()=>q('select public.get_overlay($1) as data',[ch.overlay_token]),'anon');
+      assert.equal(result.data.custom_bar,url); assert.equal(result.data.extra_hp,20);
+      assert.equal((await q('select public.portrait_referenced($1) as used',[path]))[0].used,true);
+      await assert.rejects(as(player,()=>q('update public.campaigns set custom_bar=$1 where id=$2',[url,cid])),/permission denied/);
     });
     await t.test('rotation revokes anonymous old overlay link', async () => {
       await as(player,()=>q('select public.rotate_overlay($1)',[ch.id]));
@@ -89,6 +107,8 @@ test('PostgreSQL migration, conflict detection, RLS, membership, token rotation 
       await q('insert into public.portrait_gc(object_name) values($1)',[path]);
       assert.deepEqual(await as('',()=>q('select * from public.claim_portrait_cleanup(100)'),'service_role'),[]);
       await as(owner,()=>q('delete from public.characters where id=$1',[ch.id]));
+      assert.deepEqual(await as('',()=>q('select * from public.claim_portrait_cleanup(100)'),'service_role'),[]); // Still used as campaign frame.
+      await q("update public.campaigns set bar='Pixel Art',custom_bar=null where id=$1",[cid]);
       const rows = await as('',()=>q('select * from public.claim_portrait_cleanup(100)'),'service_role');
       assert.deepEqual(rows,[{object_name:path}]);
       const [other] = await as(owner,()=>q('insert into public.characters(campaign_id,owner_id) values($1,$2) returning id',[cid,owner]));
@@ -96,7 +116,7 @@ test('PostgreSQL migration, conflict detection, RLS, membership, token rotation 
       const [newCa] = await q('select invite_code from public.campaigns where id=$1',[cid]);
       await as(player,()=>q('select public.join_campaign($1)',[newCa.invite_code]));
       const [own] = await as(player,()=>q('insert into public.characters(campaign_id,owner_id) values($1,$2) returning id',[cid,player]));
-      await assert.rejects(as(player,()=>q('select public.replace_portrait($1,$2,$3)',[own.id,'Normal',url])),/limpeza/);
+      await assert.rejects(as(owner,()=>q('select public.replace_portrait($1,$2,$3)',[own.id,'Normal',url])),/limpeza/);
       assert.ok(other.id);
     });
     await t.test('orphan recovery respects grace period and unrelated storage paths', async () => {

@@ -212,3 +212,10 @@ html.reduce-motion *,html.reduce-motion *::before,html.reduce-motion *::after { 
 .test-toolbar select { width:auto; max-width:240px; font-size:12px; padding:6px 10px; }
 .test-toolbar button { min-height:34px; font-size:11px; padding:6px 10px; }
 @media(max-width:720px) { .auth-layout { min-height:0; gap:28px; padding:28px 20px; } .auth-story h1 { font-size:34px; } .auth-features { display:none; } .test-toolbar > span { flex-basis:100%; } }
+
+.extra-health { margin:20px 0; padding:16px; border:1px solid #e9b94966; border-radius:12px; background:#e9b9490a; }
+.extra-health label, .obs-extra { color:#ffd577; }
+.extra-track { display:block; height:7px; background:#503e24; border-radius:5px; overflow:hidden; }
+.extra-fill { display:block; height:100%; background:linear-gradient(90deg,#d99532,#ffe49a); transition:width .2s; }
+.obs-extra { margin:12px auto 0; width:75%; text-align:center; font:bold 12px Arial; text-shadow:0 1px 4px #000; }
+.obs-extra .extra-track { margin-top:5px; }

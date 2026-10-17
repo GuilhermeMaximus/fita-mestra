@@ -67,7 +67,28 @@ test('mock rotations, appearance and reset mutate real local state', t => {
 test('invalid and unsupported mock writes fail without changing the database', t => {
   const { run, file } = fixture(t);
   const before = readFileSync(file, 'utf8');
-  assert.throws(() => run('saveCharacter', { id: 'lyra', changes: { patch: { hp: 900 }, expected: { hp: 32 } } }), /vida atual/);
+  assert.throws(() => run('saveCharacter', { id: 'lyra', changes: { patch: { hp: -1 }, expected: { hp: 32 } } }), /vida atual/);
   assert.throws(() => run('rpc', { name: 'not_implemented', args: {} }), /não implementada/);
   assert.equal(readFileSync(file, 'utf8'), before);
+});
+
+test('player edits own state and health but cannot upload; extra health persists', t => {
+ const {run,file}=fixture(t);
+ const c=run('saveCharacter',{id:'dorian',changes:{patch:{hp:80,active_slot:'Combate'},expected:{hp:18,active_slot:'Normal'}}},'demo-player');
+ assert.equal(c.hp,60); assert.equal(c.extra_hp,20);
+ assert.throws(()=>run('uploadPortrait',{id:'dorian',slot:'Normal',data:'x'},'demo-player'),/mestre/);
+ assert.throws(()=>run('uploadBar',{id:'mesa',data:'x'},'demo-player'),/mestre/);
+ run('saveCharacter',{id:'dorian',changes:{patch:{hp:10},expected:{hp:60}}},'demo-player');
+ const saved=createMockStore(file).execute('characters',{id:'mesa'},'demo-player').find(c=>c.id==='dorian');
+ assert.equal(saved.hp,10); assert.equal(saved.extra_hp,20);
+});
+
+test('custom frame persists and becomes visible to independent OBS clients',t=>{
+ const {run,file}=fixture(t), data='data:image/png;base64,aGVsbG8=';
+ const uploaded=run('uploadBar',{id:'mesa',data});
+ assert.equal(uploaded.custom_bar,data);
+ run('saveCampaign',{id:'mesa',changes:{patch:{bar:'Personalizada'},expected:{bar:'Pixel Art'}}});
+ const c=run('characters',{id:'mesa'})[0];
+ assert.equal(createMockStore(file).execute('overlay',{token:c.overlay_token}).custom_bar,data);
+ assert.throws(()=>run('saveCampaign',{id:'mesa',changes:{patch:{custom_bar:'x'},expected:{custom_bar:data}}}),/permitido/);
 });

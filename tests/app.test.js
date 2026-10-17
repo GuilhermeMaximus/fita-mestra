@@ -193,3 +193,21 @@ test('input labels are associated and preview uses same renderer contract as OBS
   assert.equal(f.$('preview').querySelectorAll('.obs-img').length,1);
   assert.equal(f.$('preview').querySelector('.bar-fill').style.width,'100%');
 });
+
+test('player can edit own sheet, health and active state but cannot upload portraits',async t=>{
+ const f=await fixture(t);
+ f.api.campaigns=async()=>[{...campaign('a'),owner_id:'master'}];
+ await f.app.refreshCampaigns();
+ assert.equal(f.$('hp').disabled,false);
+ assert.equal(f.$('extraHp').disabled,false);
+ assert.equal(f.$('activeSlot').disabled,false);
+ assert.equal(f.$('upload').disabled,true);
+ assert.equal(f.$('portraitUpload').classList.contains('hidden'),true);
+ f.input('hp','120'); f.input('activeSlot','Combate');
+ await f.$('saveCharacter').onclick();
+ assert.equal(f.calls[0].patch.hp,undefined); // Regular HP was already 100.
+ assert.equal(f.calls[0].patch.extra_hp,20);
+ assert.equal(f.calls[0].patch.active_slot,'Combate');
+ f.input('hp','40'); f.$('minus5').click();
+ assert.equal(f.$('hp').value,'40'); assert.equal(f.$('extraHp').value,'15');
+});

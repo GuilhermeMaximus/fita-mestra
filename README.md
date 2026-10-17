@@ -46,7 +46,7 @@ A prévia abre em `http://127.0.0.1:4173`. Publique **somente o conteúdo de `di
 ## Atualização de uma instalação existente
 
 1. Faça um backup do banco e programe a atualização sem edições simultâneas.
-2. No SQL Editor do projeto Supabase correto, execute **somente** `supabase/migrations/202610170001_reliability.sql`.
+2. No SQL Editor do projeto Supabase correto, execute as migrações `supabase/migrations/202610170001_reliability.sql` e `supabase/migrations/202610170002_health_and_bars.sql`, nessa ordem. Se a primeira já foi aplicada, execute apenas a segunda.
 3. Publique o novo `dist/` e atualize os painéis abertos.
 4. Configure a rotina de limpeza descrita abaixo.
 
@@ -58,7 +58,7 @@ As novas restrições verificam os dados existentes. Se houver dados antigos inv
 
 ## Instalação em banco novo
 
-Execute `supabase/schema.sql` e depois `supabase/migrations/202610170001_reliability.sql`, nessa ordem. Configure `config.js`, faça o build e publique `dist/`.
+Execute `supabase/schema.sql` e depois `supabase/migrations/202610170001_reliability.sql` e `supabase/migrations/202610170002_health_and_bars.sql`, nessa ordem. Configure `config.js`, faça o build e publique `dist/`.
 
 ## Comportamento de edição
 
@@ -120,3 +120,16 @@ O workflow `.github/workflows/check.yml` executa sintaxe, testes e build. As ima
 O teste opcional `tests/browser-smoke.cjs` usa Playwright e Edge instalado. Execute `node tests/browser-smoke.cjs` com Playwright disponível, ou defina `PLAYWRIGHT_MODULE` para o diretório de uma instalação existente. O teste inicia seu próprio servidor, intercepta todo o tráfego Supabase e salva capturas em `test-results/`; não usa contas reais. `BROWSER_CHANNEL` permite escolher outro canal do Chromium. O roteiro também verifica a escala da prévia no celular.
 
 O código local não inclui credenciais administrativas. A migração, o agendamento de limpeza, as configurações de e-mail e a publicação precisam ser aplicados no ambiente de hospedagem para ativar a versão 2.
+
+## Atualização: permissões, vida extra e barras próprias
+
+Em um banco já instalado, aplique também `supabase/migrations/202610170002_health_and_bars.sql`, depois da migração `202610170001_reliability.sql`. Em banco vazio, execute primeiro `supabase/schema.sql` e depois as duas migrações em ordem. Não reaplique o schema inicial em um banco existente.
+
+- Jogadores editam a própria ficha, vida normal, vida extra e estado em cena. Somente o mestre envia retratos e barras.
+- A vida normal continua limitada ao máximo; o excedente digitado vira vida extra. Exemplo: 120/100 vira 100/100 +20 extra. Também é possível ter 40/100 +20 extra.
+- Os botões −1/−5 consomem vida extra antes da normal. O campo de vida normal permite editar somente a parcela normal; o campo extra pode ser editado independentemente. Reduzir o máximo converte o excedente em extra.
+- Em Configurar campanha, envie uma imagem de exatamente 2172 × 724 pixels (PNG, JPG ou WebP até 5 MB). O aplicativo valida as dimensões antes do upload. Use transparência onde o preenchimento deve aparecer, selecione Personalizada e salve a aparência. Ajuste o encaixe conforme a arte.
+- O OBS mostra vida extra em uma faixa dourada separada; a escala da faixa usa a vida máxima como referência e o número mostra o valor completo.
+- A nova migração inclui as barras na limpeza de arquivos sem uso. Não há alteração automática no seu Supabase remoto.
+
+Após atualizar: `pnpm build`; reinicie o servidor mock com `pnpm demo` para carregar as novas regras. Os dados locais existentes são preservados.
