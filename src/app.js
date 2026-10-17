@@ -1,23 +1,31 @@
-import { bars, fonts, fitDefaults, renderOverlay } from '../shared.js';
+import { bars, fonts, fitDefaults, renderOverlay, createBar } from '../shared.js';
 import { DraftStore, LatestRequest, characterFields, campaignFields, slots, validateCharacter, validateAppearance } from './model.js';
 import { repository, unwrap } from './api.js';
 import { serialPoll } from './poll.js';
+import { createNavigation } from './navigation.js';
 
 export function createApp({ db, doc = document, win = window, api = repository(db), autoSync = true }) {
   const $ = id => doc.getElementById(id);
+  const navigation = createNavigation(doc);
   const chars = new DraftStore(characterFields), appearances = new DraftStore(campaignFields);
   const campaignsGate = new LatestRequest(), charactersGate = new LatestRequest();
   let userId = '', epoch = 0, campaigns = [], characters = [], campaignId = null, characterId = null;
-  let renderedId = null, authEvent = 0, subscription, started = false, previewJson = '';
+  let renderedId = null, authEvent = 0, subscription, started = false, previewJson = '', rosterJson = '', galleryJson = '', barOwner;
   const busy = new Set();
   const campaign = () => appearances.get(campaignId)?.remote;
   const character = () => chars.get(characterId)?.remote;
   const owner = () => !!userId && campaign()?.owner_id === userId;
   const editable = () => !!character() && (owner() || character().owner_id === userId);
   const show = (id, value) => $(id).classList.toggle('hidden', !value);
-  const message = (text, error = false) => { $('message').textContent = text; $('message').className = error ? 'error' : 'muted'; };
+  const message = (text, error = false) => {
+    $('message').textContent = text; $('message').className = error ? 'error' : 'muted';
+    if ($('campaignDialog').open) { $('dialogMessage').textContent = text; $('dialogMessage').className = error ? 'error' : 'muted'; }
+  };
   const context = () => { const value = epoch; return () => value === epoch; };
   function options(el, entries, selected) {
+    const key = JSON.stringify(entries);
+    if (el.dataset.options === key) { if (selected != null && el.value !== selected) el.value = selected; return; }
+    el.dataset.options = key;
     el.replaceChildren();
     for (const [value, label] of entries) { const o = doc.createElement('option'); o.value = value; o.textContent = label; el.append(o); }
     if (selected != null) el.value = selected;
@@ -28,9 +36,16 @@ export function createApp({ db, doc = document, win = window, api = repository(d
   function renderPermissions() {
     for (const id of ['charName', 'hp', 'maxHp', 'notes', 'activeSlot', 'font', 'nameColor', 'nameSize', 'showHp', 'uploadSlot']) $(id).disabled = !editable();
     for (const id of ['saveCharacter', 'deleteCharacter', 'upload', 'rotateOverlay']) $(id).disabled = !editable() || busy.has('character');
+    $('saveCharacter').disabled ||= !chars.dirty(characterId);
+    $('saveCharacter').textContent = busy.has('character') ? 'Salvando…' : 'Salvar alterações';
+    $('discardDraft').disabled = !editable() || !chars.dirty(characterId) || busy.has('character');
     for (const id of ['minus', 'plus', 'minus5', 'plus5']) $(id).disabled = !editable();
     $('newCharacter').disabled = !campaign() || busy.has('createCharacter');
+    $('firstCharacter').disabled = $('newCharacter').disabled;
+    $('campaignSettings').disabled = !campaign();
     $('saveCampaign').disabled = !owner() || busy.has('campaign');
+    $('saveCampaign').disabled ||= !appearances.dirty(campaignId);
+    $('saveCampaign').textContent = busy.has('campaign') ? 'Salvando…' : 'Salvar aparência';
     $('rotateInvite').disabled = !owner() || busy.has('campaign');
     $('removeMember').disabled = !owner() || busy.has('campaign');
     $('leaveCampaign').disabled = owner() || !campaign() || busy.has('campaign');
@@ -48,6 +63,7 @@ export function createApp({ db, doc = document, win = window, api = repository(d
         const text = error?.message || String(error);
         message(error.code === 'PGRST202' ? 'O banco precisa da migração v2. Consulte a seção de atualização no LEIA-ME.md; não reaplique o schema inicial.' : /CONFLITO/.test(text) ? 'Outra pessoa alterou este campo. Seu rascunho foi preservado. Revise o conflito abaixo.' : text, true);
         if (/CONFLITO/.test(text)) await refreshCampaigns().catch(() => {});
+        if (key === 'character') navigation.revealInvalid();
       }
     } finally { busy.delete(key); renderPermissions(); }
   }
@@ -63,64 +79,105 @@ export function createApp({ db, doc = document, win = window, api = repository(d
     const data = { ...c, ...Object.fromEntries(campaignFields.map(k => [k, a[k]])) };
     const json = JSON.stringify(data);
     if (json !== previewJson) { renderOverlay($('preview'), data); previewJson = json; }
-    $('draftStatus').textContent = chars.dirty(characterId) ? 'Alterações não salvas' : 'Ficha salva';
+    const dirty = chars.dirty(characterId);
+    $('draftStatus').textContent = !editable() ? 'Somente leitura · ficha de outro jogador' : dirty ? 'Alterações não salvas' : 'Tudo salvo';
+    $('draftStatus').closest('.savebar').dataset.dirty = String(dirty);
+    $('previewState').textContent = dirty || appearances.dirty(campaignId) ? 'RASCUNHO' : 'PRÉVIA SALVA';
+    $('characterTitle').textContent = c.name || 'Personagem sem nome';
+    $('characterSubtitle').textContent = campaign().title + ' · ' + c.active_slot;
+    $('maxHpReading').textContent = c.max_hp;
+    const percent = c.max_hp > 0 ? Math.min(100, Math.max(0, c.hp / c.max_hp * 100)) : 0;
+    $('hpMeter').style.width = percent + '%';
+    $('hpDescription').textContent = c.hp === 0 ? 'SEM PONTOS DE VIDA' : Math.round(percent) + '% DA VIDA MÁXIMA';
+    renderPermissions(); drawCharacters();
     const conflicts = chars.conflicts(characterId);
     show('characterConflict', conflicts.length > 0);
     $('conflictFields').textContent = conflicts.join(', ');
   }
   function gallery() {
     const c = chars.get(characterId)?.draft;
-    $('portraitGallery').replaceChildren();
     if (!c) return;
+    const key = JSON.stringify([c.images, editable()]);
+    if (key === galleryJson) {
+      for (const tile of $('portraitGallery').children) {
+        const selected = tile.dataset.slot === $('uploadSlot').value;
+        tile.classList.toggle('active', selected); tile.setAttribute('aria-pressed', String(selected));
+      }
+      return;
+    }
+    galleryJson = key; $('portraitGallery').replaceChildren();
     for (const slot of slots) {
       const tile = button(slot, () => {
-        capture(); chars.edit(characterId, { active_slot: slot });
-        $('activeSlot').value = slot; $('uploadSlot').value = slot; gallery(); preview();
+        $('uploadSlot').value = slot; gallery();
       }, !editable());
-      tile.className = 'portrait-tile' + (c.active_slot === slot ? ' active' : '');
-      tile.setAttribute('aria-pressed', String(c.active_slot === slot));
+      tile.className = 'portrait-tile' + ($('uploadSlot').value === slot ? ' active' : '');
+      tile.dataset.slot = slot;
+      tile.setAttribute('aria-pressed', String($('uploadSlot').value === slot));
       if (c.images?.[slot]) { const img = doc.createElement('img'); img.src = c.images[slot]; img.alt = ''; img.className = 'portrait-thumb'; tile.prepend(img); }
-      else { const placeholder = doc.createElement('span'); placeholder.className = 'portrait-thumb empty'; placeholder.textContent = '+'; tile.prepend(placeholder); }
+      else { const placeholder = doc.createElement('span'); placeholder.className = 'portrait-thumb empty'; placeholder.textContent = 'Sem imagem'; tile.prepend(placeholder); }
       $('portraitGallery').append(tile);
     }
   }
   function renderCharacter() {
     const c = chars.get(characterId)?.draft;
     show('editor', !!c);
+    show('noCharacter', !!campaignId && !c);
     if (!c) { renderedId = null; previewJson = ''; return; }
     const changed = renderedId !== characterId;
     const mapping = { charName: 'name', notes: 'notes', hp: 'hp', maxHp: 'max_hp', activeSlot: 'active_slot', font: 'font', nameColor: 'name_color', nameSize: 'name_size' };
     for (const [id, field] of Object.entries(mapping)) if ($(id).value !== String(c[field])) $(id).value = c[field];
     $('showHp').checked = c.show_hp;
+    $('hp').max = String(c.max_hp);
     if (changed) { $('uploadSlot').value = c.active_slot; $('upload').value = ''; }
     $('obsLink').value = new URL('obs.html?id=' + encodeURIComponent(c.overlay_token), win.location.href).href;
     renderedId = characterId;
     gallery(); renderPermissions(); preview();
   }
   function drawCharacters() {
+    const key = JSON.stringify([characterId, characters.map(c => [c.id, c.name, c.hp, c.max_hp, chars.dirty(c.id)])]);
+    if (rosterJson === key) return;
+    rosterJson = key;
+    const focused = $('characters').contains(doc.activeElement) ? doc.activeElement?.dataset.character : null;
     $('characters').replaceChildren();
+    $('characterCount').textContent = characters.length;
     for (const c of characters) {
-      const b = button(`${c.name} · ${c.hp}/${c.max_hp} HP`, () => { capture(); characterId = c.id; drawCharacters(); renderCharacter(); });
+      const b = button('', () => { capture(); characterId = c.id; navigation.screen(); drawCharacters(); renderCharacter(); });
+      const avatar = doc.createElement('span'); avatar.className = 'character-avatar'; avatar.setAttribute('aria-hidden', 'true'); avatar.textContent = c.name.split(/\s+/).filter(Boolean).slice(0, 2).map(n => n[0]).join('');
+      const summary = doc.createElement('span'); summary.className = 'character-summary';
+      const name = doc.createElement('strong'); name.textContent = c.name;
+      const hp = doc.createElement('small'); hp.textContent = `${c.hp} / ${c.max_hp} HP${chars.dirty(c.id) ? ' · Rascunho' : ''}`;
+      summary.append(name, hp); b.append(avatar, summary);
       b.classList.toggle('selected', c.id === characterId);
+      b.dataset.character = c.id;
       b.setAttribute('aria-pressed', String(c.id === characterId));
       $('characters').append(b);
+      if (focused === c.id) b.focus();
     }
   }
   function renderAppearance() {
     const d = appearances.get(campaignId)?.draft;
     if (!d) return;
     show('ownerOnly', owner()); show('notOwner', !owner()); show('memberAdmin', owner()); show('leaveCampaign', !owner());
-    $('campaignInfo').textContent = `${owner() ? 'Mestre' : 'Jogador'} · Convite: ${campaign().invite_code}`;
+    $('campaignInfo').textContent = owner() ? 'Você é o mestre desta mesa' : 'Você é jogador nesta mesa';
+    $('inviteCode').value = campaign().invite_code || '';
     for (const id of ['grad1', 'grad2']) if (doc.activeElement !== $(id)) $(id).value = d[id];
     const fit = { ...fitDefaults[d.bar], ...d.fits?.[d.bar] };
     for (const [key, id] of Object.entries({ x: 'fitX', y: 'fitY', w: 'fitW', h: 'fitH' })) if (doc.activeElement !== $(id)) $(id).value = fit[key];
-    $('barOptions').replaceChildren();
-    for (const name of Object.keys(bars)) {
+    if (!$('barOptions').children.length || barOwner !== owner()) {
+      barOwner = owner(); $('barOptions').replaceChildren();
+      for (const name of Object.keys(bars)) {
       const b = button(name, () => { appearances.edit(campaignId, { bar: name }); renderAppearance(); preview(); }, !owner());
-      b.classList.toggle('selected', d.bar === name); b.setAttribute('aria-pressed', String(d.bar === name)); $('barOptions').append(b);
+      const img = doc.createElement('img'); img.src = bars[name]; img.alt = ''; img.loading = 'lazy'; img.width = 285; img.height = 95; b.prepend(img);
+      b.dataset.bar = name; $('barOptions').append(b);
+      }
+    }
+    for (const b of $('barOptions').children) {
+      b.classList.toggle('selected', d.bar === b.dataset.bar); b.setAttribute('aria-pressed', String(d.bar === b.dataset.bar));
     }
     $('appearanceStatus').textContent = appearances.dirty(campaignId) ? 'Aparência com alterações não salvas' : 'Aparência salva';
     show('campaignConflict', appearances.conflicts(campaignId).length > 0);
+    $('campaignPreview').replaceChildren(createBar({ ...d, hp: 70, max_hp: 100 }, doc));
+    renderPermissions();
   }
   async function refreshCharacters(selectedId) {
     if (!campaignId) return;
@@ -147,6 +204,7 @@ export function createApp({ db, doc = document, win = window, api = repository(d
     characterId = null; characters = []; renderedId = null;
     $('campaignSelect').value = campaignId || '';
     show('workspace', !!campaignId); show('editor', false); drawCharacters();
+    show('noCampaign', !campaignId); navigation.screen(); navigation.select('session');
     if (campaignId) { renderAppearance(); await Promise.all([refreshCharacters(), loadMembers()]); }
     renderPermissions();
   }
@@ -165,13 +223,15 @@ export function createApp({ db, doc = document, win = window, api = repository(d
     options($('campaignSelect'), rows.map(c => [c.id, c.title]), next);
     if (next !== campaignId || selectedId) await selectCampaign(next);
     else if (next) { renderAppearance(); await refreshCharacters(); }
-    else show('workspace', false);
+    else { show('workspace', false); show('noCampaign', true); }
   }
   function clearState() {
     epoch++; campaignsGate.invalidate(); charactersGate.invalidate();
     chars.clear(); appearances.clear(); campaigns = []; characters = []; campaignId = null; characterId = null; renderedId = null;
-    previewJson = ''; $('preview').replaceChildren(); $('characters').replaceChildren(); $('memberSelect').replaceChildren();
+    previewJson = ''; rosterJson = ''; galleryJson = ''; $('preview').replaceChildren(); $('characters').replaceChildren(); $('memberSelect').replaceChildren(); $('syncStatus').textContent = '';
+    delete $('memberSelect').dataset.options;
     options($('campaignSelect'), []); show('workspace', false); show('editor', false);
+    show('noCampaign', true); navigation.screen(); navigation.select('session'); navigation.closeDialog();
     for (const id of ['notes', 'charName', 'obsLink', 'password', 'newPassword', 'newCampaign', 'invite']) $(id).value = '';
   }
   async function sessionChanged(session, event) {
@@ -190,8 +250,10 @@ export function createApp({ db, doc = document, win = window, api = repository(d
     onValue: () => { $('syncStatus').textContent = userId ? 'Sincronizado' : ''; },
     onError: () => { $('syncStatus').textContent = 'Sem sincronização. Seus rascunhos estão preservados.'; }
   });
-  function bind(id, key, fn) { $(id).onclick = () => run(key, fn); }
-  for (const id of ['charName', 'hp', 'maxHp', 'notes', 'activeSlot', 'font', 'nameColor', 'nameSize', 'showHp']) $(id).addEventListener('input', () => { capture(); if (id === 'activeSlot') gallery(); preview(); });
+  function bind(id, key, fn) { $(id).onclick = event => { event?.preventDefault(); return run(key, fn); }; }
+  for (const id of ['charName', 'hp', 'maxHp', 'notes', 'activeSlot', 'font', 'nameColor', 'nameSize', 'showHp']) $(id).addEventListener('input', () => { capture(); if (id === 'maxHp') $('hp').max = $('maxHp').value; preview(); });
+  $('uploadSlot').onchange = gallery;
+  $('discardDraft').onclick = () => { if (chars.dirty(characterId) && win.confirm('Descartar as alterações deste personagem em todas as abas?')) { chars.reset(characterId); renderCharacter(); drawCharacters(); } };
   options($('activeSlot'), slots.map(s => [s, s])); options($('uploadSlot'), slots.map(s => [s, s])); options($('font'), fonts.map(f => [f, f]));
   for (const [id, delta] of [['minus', -1], ['plus', 1], ['minus5', -5], ['plus5', 5]]) $(id).onclick = () => {
     $('hp').value = Math.max(0, Math.min(Number($('maxHp').value) || 1, (Number($('hp').value) || 0) + delta)); capture(); preview();
@@ -201,19 +263,19 @@ export function createApp({ db, doc = document, win = window, api = repository(d
     const title = $('newCampaign').value.trim();
     if (!title || title.length > 100) throw Error('Informe um nome de campanha de 1 a 100 caracteres.');
     const id = await api.rpc('create_campaign', { campaign_title: title });
-    if (current()) { $('newCampaign').value = ''; await refreshCampaigns(id); }
+    if (current()) { $('newCampaign').value = ''; await refreshCampaigns(id); navigation.closeDialog(); message('Campanha criada. Adicione seu primeiro personagem.'); }
   });
   bind('joinCampaign', 'campaignCreate', async current => {
     const code = $('invite').value.trim();
     if (!code) throw Error('Informe o código de convite.');
     const id = await api.rpc('join_campaign', { code });
-    if (current()) { $('invite').value = ''; await refreshCampaigns(id); }
+    if (current()) { $('invite').value = ''; await refreshCampaigns(id); navigation.closeDialog(); message('Você entrou na campanha.'); }
   });
   bind('newCharacter', 'createCharacter', async current => {
     const id = campaignId;
     if (!id) throw Error('Selecione uma campanha.');
     const row = await api.createCharacter(id, userId);
-    if (current() && campaignId === id) await refreshCharacters(row.id);
+    if (current() && campaignId === id) { await refreshCharacters(row.id); navigation.screen(); navigation.select('sheet'); $('charName').focus(); $('charName').select(); }
   });
   bind('saveCharacter', 'character', async current => {
     if (!editable()) throw Error('Sem permissão.');
@@ -305,6 +367,7 @@ export function createApp({ db, doc = document, win = window, api = repository(d
     if (current()) await refreshCampaigns();
   });
   bind('copyObs', 'clipboard', async () => { await win.navigator.clipboard.writeText($('obsLink').value); message('Link copiado.'); });
+  bind('copyInvite', 'clipboard', async () => { await win.navigator.clipboard.writeText($('inviteCode').value); message('Convite copiado.'); });
   $('openObs').onclick = () => win.open($('obsLink').value, '_blank', 'noopener');
   function credentials() {
     if (!$('email').reportValidity() || !$('password').reportValidity()) throw Error('Confira o e-mail e a senha.');

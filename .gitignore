@@ -5,3 +5,5 @@ dist/
 !.env.example
 coverage/
 test-results/
+.local-test/
+config.test.js

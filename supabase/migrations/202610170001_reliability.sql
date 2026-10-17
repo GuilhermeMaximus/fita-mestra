@@ -1,4 +1,4 @@
--- Upgrade from the original Fita Metra schema. Apply once before publishing v2.
+-- Upgrade from the original Fita Mestra schema. Apply once before publishing v2.
 -- All changes are atomic. Existing invalid data causes an explicit rollback.
 begin;
 

@@ -3,111 +3,126 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Fita Metra Fichas</title>
+  <meta name="theme-color" content="#100d19">
+  <meta name="description" content="Sua mesa de RPG, em sintonia. Organize personagens, acompanhe a vida e leve sua campanha para o OBS com Fita Mestra.">
+  <title>Fita Mestra · Sua mesa, em sintonia</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h1>FITA METRA <small>FICHAS</small></h1>
-    <div class="row"><span id="who">Desconectado</span><button id="logout" class="hidden">Sair</button></div>
+  <a class="skip-link" href="#main">Pular para o conteúdo</a>
+  <header class="topbar">
+    <a class="brand" href="./" aria-label="Fita Mestra, início"><span class="brand-title">Fita Mestra<span class="brand-dot">.</span></span><span class="brand-caption">RPG CHARACTER STUDIO</span></a>
+    <div class="account"><span id="syncStatus" class="sync-status" role="status"></span><span id="who">Desconectado</span><button id="logout" class="quiet hidden">Sair</button></div>
   </header>
-  <main>
+  <main id="main">
     <div id="message" role="status" aria-live="polite"></div>
-    <p id="syncStatus" class="muted"></p>
-    <section id="setup" class="card hidden"><h2>Configuração necessária</h2><p>Confira as instruções de instalação no LEIA-ME.md.</p></section>
-    <section id="auth" class="card">
-      <h2>Entrar / criar conta</h2>
-      <div class="grid">
-        <div><label for="email">E-mail</label><input id="email" type="email" autocomplete="email" required></div>
-        <div><label for="password">Senha</label><input id="password" type="password" autocomplete="current-password" minlength="6" required></div>
+    <section id="setup" class="panel narrow hidden"><h2>Configuração necessária</h2><p>Confira as instruções de instalação no LEIA-ME.md.</p></section>
+    <section id="auth" class="auth-layout">
+      <div class="auth-story"><div class="eyebrow">FITA MESTRA / ESTÚDIO DE RPG</div><h1>Menos preparação.<br><em>Mais história.</em></h1><p>Suas fichas, sua campanha e sua transmissão.<br>Um espaço simples para continuar a aventura.</p><div class="auth-features"><span>01 / Organize os personagens</span><span>02 / Acompanhe a sessão</span><span>03 / Transmita com o OBS</span></div></div>
+      <div class="auth-form panel"><span class="eyebrow">BEM-VINDO AO ESTÚDIO</span><h2 id="authTitle">Sua próxima sessão começa aqui.</h2><p id="authHelp" class="muted">Entre para continuar suas campanhas.</p>
+        <form id="authForm">
+          <label for="email">E-mail</label><input id="email" type="email" autocomplete="email" required placeholder="voce@exemplo.com">
+          <div id="passwordField"><label for="password">Senha</label><input id="password" type="password" autocomplete="current-password" minlength="6" required></div>
+          <button class="primary wide actions" type="button" id="login">Entrar no estúdio</button>
+          <button class="primary wide actions hidden" type="button" id="signup">Criar minha conta</button>
+          <button class="primary wide actions hidden" type="button" id="resetPassword">Enviar link de recuperação</button>
+        </form>
+        <button class="link actions" data-auth-mode="reset">Esqueci minha senha</button>
+        <div class="auth-switch"><span id="authSwitchText">Primeira vez por aqui?</span><button class="link" data-auth-mode="signup">Criar conta</button><button class="link hidden" data-auth-mode="login">Voltar para entrar</button></div>
+        <p class="fine">Um lugar para a história. Mais espaço para jogar.</p>
       </div>
-      <div class="row actions"><button class="primary" id="login">Entrar</button><button id="signup">Criar conta</button><button id="resetPassword">Esqueci minha senha</button></div>
-      <p class="muted">Após o cadastro, confirme seu e-mail se solicitado.</p>
     </section>
-    <section id="recovery" class="card hidden">
-      <h2>Definir nova senha</h2>
-      <label for="newPassword">Nova senha (mínimo de 8 caracteres)</label><input id="newPassword" type="password" autocomplete="new-password" minlength="8" required>
-      <button id="updatePassword" class="primary actions">Salvar nova senha</button>
-    </section>
-    <section id="app" class="hidden">
-      <div class="card">
-        <h2>Campanhas</h2>
-        <label for="newCampaign">Nome da nova campanha</label>
-        <div class="row"><input id="newCampaign" class="grow" maxlength="100"><button id="createCampaign" class="primary">Criar campanha</button></div>
-        <label for="invite">Código de convite</label>
-        <div class="row"><input id="invite" class="grow" maxlength="64"><button id="joinCampaign">Entrar por convite</button></div>
-        <label for="campaignSelect">Campanha ativa</label><select id="campaignSelect"></select>
-        <p id="campaignInfo" class="muted"></p>
-      </div>
-      <div id="workspace" class="hidden">
-        <div class="card">
-          <div class="row"><h2 class="grow">Personagens</h2><button id="newCharacter" class="primary">+ Novo personagem</button></div>
-          <div class="list" id="characters" aria-label="Personagens da campanha"></div>
-        </div>
-        <div id="editor" class="hidden">
-          <div class="grid">
-            <section class="card">
-              <h2>Ficha do personagem</h2>
-              <label for="charName">Nome</label><input id="charName" maxlength="120" required>
-              <label for="hp">Vida atual</label>
-              <div class="row hp-controls"><button id="minus5" aria-label="Reduzir vida em 5">−5</button><button id="minus" aria-label="Reduzir vida em 1">−1</button><input id="hp" type="number" min="0" max="1000000" step="1"><button id="plus" aria-label="Aumentar vida em 1">+1</button><button id="plus5" aria-label="Aumentar vida em 5">+5</button></div>
-              <label for="maxHp">Vida máxima</label><input id="maxHp" type="number" min="1" max="1000000" step="1">
-              <label for="notes">Ficha livre</label><textarea id="notes" maxlength="50000" placeholder="História, habilidades, inventário…"></textarea>
-              <label for="activeSlot">Estado / imagem ativa</label><select id="activeSlot"></select>
-              <p>Variações salvas</p><div id="portraitGallery" class="portrait-gallery" aria-label="Variações de retrato"></div>
-              <label for="uploadSlot">Estado que receberá a imagem</label><select id="uploadSlot"></select>
-              <label for="upload">Enviar imagem (PNG, JPG ou WebP, até 5 MB)</label><input id="upload" type="file" accept="image/png,image/jpeg,image/webp">
-              <p class="muted">O upload salva somente a imagem. As outras alterações ficam no rascunho até você salvar a ficha.</p>
-              <div id="characterConflict" class="conflict hidden" role="status">
-                <p>Campos alterados por outra pessoa: <span id="conflictFields"></span>. Escolha qual versão usar.</p>
-                <button id="characterReload">Usar versão do servidor</button><button id="characterKeep">Manter minhas alterações</button>
+    <section id="recovery" class="panel narrow hidden"><h2>Definir nova senha</h2><label for="newPassword">Nova senha (mínimo de 8 caracteres)</label><input id="newPassword" type="password" autocomplete="new-password" minlength="8" required><button id="updatePassword" class="primary actions">Salvar nova senha</button></section>
+
+    <section id="app" class="app-shell hidden">
+      <aside class="sidebar" aria-label="Campanhas e personagens">
+        <div class="sidebar-heading"><span class="eyebrow">SUA MESA</span><button class="link" data-open-campaign="create">Campanhas</button></div>
+        <label class="sr-only" for="campaignSelect">Campanha</label><select id="campaignSelect"></select><p id="campaignInfo" class="role-label"></p>
+        <div class="sidebar-heading roster-heading"><h2>Personagens</h2><span id="characterCount" class="count">0</span></div>
+        <div class="character-list" id="characters" aria-label="Personagens da campanha"></div>
+        <button id="newCharacter" class="add-character">+ Novo personagem</button>
+        <button id="campaignSettings" class="settings-button">Configurar campanha <span aria-hidden="true">↗</span></button>
+        <div class="sidebar-footer"><span class="eyebrow">A HISTÓRIA CONTINUA.</span><p>Sua mesa, em sintonia.</p><label class="check fine" for="motionOff"><input id="motionOff" type="checkbox"> Reduzir animações</label></div>
+      </aside>
+      <div class="workspace-main">
+        <section id="noCampaign" class="empty-state panel"><span class="eyebrow">LADO A / PRIMEIRA CAMPANHA</span><h2>Toda história precisa de uma mesa.</h2><p>Crie uma campanha como mestre ou entre com o convite do seu grupo.</p><div class="row"><button class="primary" data-open-campaign="create">Criar campanha</button><button data-open-campaign="join">Tenho um convite</button></div></section>
+        <div id="workspace" class="hidden">
+          <div id="characterScreen">
+            <section id="noCharacter" class="empty-state panel hidden"><span class="eyebrow">UM NOVO COMEÇO</span><h2>Quem vai viver essa história?</h2><p>Adicione seu primeiro personagem. Depois, personalize a ficha e o retrato.</p><button class="primary" id="firstCharacter">Criar primeiro personagem</button></section>
+            <div id="editor" class="hidden">
+              <div class="workspace-heading"><div><span class="eyebrow">ESTÚDIO / PERSONAGEM</span><h1 id="characterTitle">Seu personagem</h1><p id="characterSubtitle" class="muted">Tudo pronto para a próxima cena.</p></div><span class="tag">LADO A <span aria-hidden="true">/</span> PERSONAGEM</span></div>
+              <div class="tabs" role="tablist" aria-label="Seções do personagem">
+                <button type="button" role="tab" id="tab-session" data-tab="session" aria-controls="panel-session" aria-selected="true">Sessão</button>
+                <button type="button" role="tab" id="tab-sheet" data-tab="sheet" aria-controls="panel-sheet" aria-selected="false" tabindex="-1">Ficha</button>
+                <button type="button" role="tab" id="tab-portraits" data-tab="portraits" aria-controls="panel-portraits" aria-selected="false" tabindex="-1">Retratos</button>
+                <button type="button" role="tab" id="tab-obs" data-tab="obs" aria-controls="panel-obs" aria-selected="false" tabindex="-1">OBS</button>
               </div>
-              <p id="draftStatus" role="status"></p>
-              <div class="row"><button id="saveCharacter" class="primary">Salvar ficha</button><button id="deleteCharacter" class="danger">Excluir personagem</button></div>
-            </section>
-            <section class="card">
-              <h2>Aparência e OBS</h2>
-              <label for="font">Fonte do nome e da vida</label><select id="font"></select>
-              <div class="row"><div class="grow"><label for="nameColor">Cor dos textos</label><input id="nameColor" type="color"></div><div class="grow"><label for="nameSize">Tamanho do nome</label><input id="nameSize" type="number" min="12" max="60" step="1"></div></div>
-              <label class="check" for="showHp"><input id="showHp" type="checkbox"> Mostrar números de HP</label>
-              <h2 class="actions">Prévia individual</h2>
-              <div class="demo"><div class="overlay-content" id="preview"></div></div>
-              <label for="obsLink">Link exclusivo do OBS</label><input id="obsLink" readonly>
-              <div class="row actions"><button id="copyObs">Copiar</button><button id="openObs">Abrir</button><button id="rotateOverlay">Renovar link</button></div>
-              <p class="muted">Fonte de Navegador: 490 × 320. O link permite visualizar este personagem. Renovar invalida o link anterior. Fontes dependem das instaladas no computador do OBS.</p>
-            </section>
-          </div>
-        </div>
-        <section class="card" id="appearance">
-          <h2>Aparência da campanha</h2>
-          <div id="ownerOnly">
-            <p>Modelo da barra</p><div class="list" id="barOptions" aria-label="Modelos de barra"></div>
-            <div class="row"><div><label for="grad1">Início do degradê</label><input type="color" id="grad1"></div><div><label for="grad2">Fim do degradê</label><input type="color" id="grad2"></div></div>
-            <p class="muted">Ajuste o preenchimento dentro da moldura. Posição e tamanho são percentuais.</p>
-            <div class="grid">
-              <div><label for="fitX">Posição X (%)</label><input type="number" id="fitX" step="0.1" min="0" max="100"><label for="fitY">Posição Y (%)</label><input type="number" id="fitY" step="0.1" min="0" max="100"></div>
-              <div><label for="fitW">Largura (%)</label><input type="number" id="fitW" step="0.1" min="1" max="100"><label for="fitH">Altura (%)</label><input type="number" id="fitH" step="0.1" min="1" max="100"></div>
+              <div class="studio">
+                <div class="editor-panels">
+                  <section class="panel session-panel" id="panel-session" data-panel="session" role="tabpanel" aria-labelledby="tab-session" tabindex="0">
+                    <div class="section-heading"><h2>Em cena</h2><span class="eyebrow">CONTROLE RÁPIDO</span></div>
+                    <p class="muted">Cuide da vida. Continue a história.</p>
+                    <div class="vital-display"><label for="hp">PONTOS DE VIDA</label><div class="hp-reading"><input id="hp" type="number" min="0" max="1000000" step="1"><span>/ <span id="maxHpReading">100</span></span></div><div class="vital-track" aria-hidden="true"><span id="hpMeter"></span></div><p id="hpDescription" class="fine"></p></div>
+                    <div class="hp-controls"><span class="sr-only">Ajustar pontos de vida</span><button id="minus5" aria-label="Reduzir vida em 5">−5</button><button id="minus" aria-label="Reduzir vida em 1">−1</button><button id="plus" aria-label="Aumentar vida em 1">+1</button><button id="plus5" aria-label="Aumentar vida em 5">+5</button></div>
+                    <div class="state-field"><label for="activeSlot">Retrato em cena</label><select id="activeSlot"></select><p class="fine">A troca é manual. Salve para atualizar a transmissão.</p></div>
+                  </section>
+                  <section class="panel" id="panel-sheet" data-panel="sheet" role="tabpanel" aria-labelledby="tab-sheet" tabindex="0" hidden>
+                    <span class="eyebrow">IDENTIDADE & HISTÓRIA</span><h2>A ficha por trás da aventura.</h2>
+                    <label for="charName">Nome do personagem</label><input id="charName" maxlength="120" required>
+                    <label for="maxHp">Vida máxima</label><input id="maxHp" type="number" min="1" max="1000000" step="1">
+                    <label for="notes">Anotações</label><textarea id="notes" maxlength="50000" placeholder="História, habilidades, inventário…"></textarea>
+                    <details class="danger-zone"><summary>Excluir personagem</summary><p class="muted">Remove a ficha e todos os retratos. Não dá para desfazer.</p><button id="deleteCharacter" class="danger">Excluir este personagem</button></details>
+                  </section>
+                  <section class="panel" id="panel-portraits" data-panel="portraits" role="tabpanel" aria-labelledby="tab-portraits" tabindex="0" hidden>
+                    <span class="eyebrow">CADA CENA, UMA VERSÃO</span><h2>Retratos do personagem</h2><p class="muted">Escolha uma variação para enviar a imagem. O retrato em cena é definido na aba Sessão.</p>
+                    <div id="portraitGallery" class="portrait-gallery" aria-label="Variações de retrato"></div>
+                    <label for="uploadSlot">Enviar imagem para</label><select id="uploadSlot"></select>
+                    <label for="upload">Arquivo (PNG, JPG ou WebP, até 5 MB)</label><input id="upload" type="file" accept="image/png,image/jpeg,image/webp">
+                    <p class="fine">O envio salva a imagem imediatamente. Na ausência de uma variação, o OBS usa o retrato Normal.</p>
+                  </section>
+                  <section class="panel" id="panel-obs" data-panel="obs" role="tabpanel" aria-labelledby="tab-obs" tabindex="0" hidden>
+                    <span class="eyebrow">DA MESA PARA A TELA</span><h2>Seu personagem no OBS</h2>
+                    <ol class="setup-steps"><li>Adicione uma fonte de <strong>Navegador</strong> no OBS.</li><li>Cole o link deste personagem no campo URL.</li><li>Defina <strong>490 × 320 pixels</strong>. O fundo já é transparente.</li></ol>
+                    <label for="obsLink">Link do personagem</label><input id="obsLink" readonly><div class="row actions"><button id="copyObs" class="primary">Copiar link do OBS</button><button id="openObs">Abrir prévia</button></div>
+                    <details><summary>Personalizar texto e números</summary>
+                      <label for="font">Fonte do nome e da vida</label><select id="font"></select>
+                      <div class="grid"><div><label for="nameColor">Cor dos textos</label><input id="nameColor" type="color"></div><div><label for="nameSize">Tamanho do nome</label><input id="nameSize" type="number" min="12" max="60" step="1"></div></div>
+                      <label class="check" for="showHp"><input id="showHp" type="checkbox"> Mostrar números de vida</label><p class="fine">As fontes dependem das instaladas no computador do OBS.</p>
+                    </details>
+                    <details class="danger-zone"><summary>Substituir link do OBS</summary><p class="fine">O link antigo deixará de funcionar. Você precisará atualizar a URL no OBS.</p><button id="rotateOverlay">Gerar novo link</button></details>
+                  </section>
+                </div>
+                <aside class="stage"><div class="section-heading"><h2>Monitor de cena</h2><span class="tag" id="previewState">PRÉVIA</span></div><div class="demo"><div class="overlay-content" id="preview"></div></div><div class="monitor-footer"><span>OBS / 490 × 320</span><span>FUNDO TRANSPARENTE</span></div><p class="fine">A prévia mostra suas edições. Salve para enviá-las ao OBS.</p><button class="link" id="goObs">Configurar transmissão <span aria-hidden="true">↗</span></button></aside>
+              </div>
+              <div id="characterConflict" class="conflict hidden" role="status"><p>Outra pessoa alterou: <span id="conflictFields"></span>. Escolha qual versão usar.</p><div class="row"><button id="characterReload">Usar versão do servidor</button><button id="characterKeep">Manter minhas alterações</button></div></div>
+              <div class="savebar character-save"><div><p id="draftStatus" role="status">Ficha salva</p><span class="fine">As alterações de todas as abas são salvas juntas.</span></div><div class="row"><button id="discardDraft" class="quiet">Descartar</button><button id="saveCharacter" class="primary">Salvar alterações</button></div></div>
             </div>
-            <div id="campaignConflict" class="conflict hidden" role="status"><p>A aparência também foi alterada em outra sessão.</p><button id="campaignReload">Usar versão do servidor</button><button id="campaignKeep">Manter minhas alterações</button></div>
-            <p id="appearanceStatus" role="status"></p>
-            <div class="row"><button class="primary" id="saveCampaign">Salvar aparência da campanha</button><button id="resetFit">Restaurar encaixe desta barra</button></div>
           </div>
-          <p id="notOwner" class="muted hidden">Somente o mestre pode mudar a aparência geral.</p>
-        </section>
-        <section class="card">
-          <h2>Participação na campanha</h2>
-          <div id="memberAdmin" class="hidden">
-            <button id="rotateInvite">Renovar código de convite</button>
-            <label for="memberSelect">Participante</label><select id="memberSelect"></select>
-            <button id="removeMember" class="danger actions">Remover participante</button>
-            <p class="muted">Ao remover alguém, suas fichas passam para o mestre. Todos os links OBS e o convite da campanha são renovados para encerrar os acessos compartilhados.</p>
-          </div>
-          <button id="leaveCampaign" class="danger">Sair da campanha</button>
-        </section>
+          <section id="campaignScreen" hidden>
+            <button id="backToCharacter" class="link">← Voltar aos personagens</button>
+            <div class="workspace-heading"><div><span class="eyebrow">DIREÇÃO DE ARTE & EQUIPE</span><h1>Configurar campanha</h1><p class="muted">Uma identidade para toda a mesa.</p></div></div>
+            <section class="panel" id="appearance"><div class="section-heading"><h2>Escolha o clima da aventura.</h2><span class="tag">7 MODELOS</span></div><p class="muted">A barra e as cores são compartilhadas por todos os personagens da campanha.</p>
+              <div id="ownerOnly">
+                <div id="barOptions" class="bar-options" aria-label="Modelos de barra"></div>
+                <div class="appearance-tools"><div class="row"><div><label for="grad1">Cor inicial</label><input type="color" id="grad1"></div><div><label for="grad2">Cor final</label><input type="color" id="grad2"></div></div><div><span class="eyebrow">PRÉVIA DO PREENCHIMENTO</span><div id="campaignPreview"></div></div></div>
+                <details><summary>Ajuste avançado do preenchimento</summary><p class="fine">Posição e tamanho dentro da moldura, em porcentagem.</p><div class="grid"><div><label for="fitX">Posição X (%)</label><input type="number" id="fitX" step="0.1" min="0" max="100"><label for="fitY">Posição Y (%)</label><input type="number" id="fitY" step="0.1" min="0" max="100"></div><div><label for="fitW">Largura (%)</label><input type="number" id="fitW" step="0.1" min="1" max="100"><label for="fitH">Altura (%)</label><input type="number" id="fitH" step="0.1" min="1" max="100"></div></div><button id="resetFit" class="actions">Restaurar encaixe padrão</button></details>
+                <div id="campaignConflict" class="conflict hidden" role="status"><p>A aparência também foi alterada em outra sessão.</p><button id="campaignReload">Usar versão do servidor</button><button id="campaignKeep">Manter minhas alterações</button></div>
+                <div class="savebar"><p id="appearanceStatus" role="status"></p><button class="primary" id="saveCampaign">Salvar aparência</button></div>
+              </div><p id="notOwner" class="muted hidden">Somente o mestre pode mudar a aparência da campanha.</p>
+            </section>
+            <section class="panel members-panel"><h2>Quem faz parte da história</h2><div id="memberAdmin" class="hidden"><label for="inviteCode">Código de convite</label><div class="row"><input id="inviteCode" readonly class="grow"><button id="copyInvite">Copiar convite</button></div><details><summary>Gerenciar participantes e convites</summary><label for="memberSelect">Participante</label><select id="memberSelect"></select><button id="removeMember" class="danger actions">Remover participante</button><p class="fine">As fichas de quem sai passam para o mestre. Todos os links do OBS e o convite são renovados.</p><button id="rotateInvite">Gerar novo código de convite</button></details></div><button id="leaveCampaign" class="danger">Sair da campanha</button></section>
+          </section>
+        </div>
       </div>
     </section>
   </main>
-  <script src="config.js"></script>
-  <script type="module" src="app.js"></script>
+  <dialog id="campaignDialog" aria-labelledby="campaignDialogTitle">
+    <div class="section-heading"><h2 id="campaignDialogTitle">Uma nova história</h2><button id="closeCampaignDialog" class="quiet" aria-label="Fechar janela de campanhas">Fechar</button></div>
+    <p class="muted">Comece sua mesa ou encontre seu grupo.</p><div class="dialog-modes"><button id="modeCreate" aria-pressed="true">Criar campanha</button><button id="modeJoin" aria-pressed="false">Entrar com convite</button></div>
+    <p id="dialogMessage" role="status"></p>
+    <form id="createCampaignForm"><label for="newCampaign">Nome da nova campanha</label><input id="newCampaign" maxlength="100" required placeholder="Como a sua história se chama?"><button id="createCampaign" type="button" class="primary wide actions">Criar campanha</button></form>
+    <form id="joinCampaignForm" hidden><label for="invite">Código de convite</label><input id="invite" maxlength="64" required placeholder="Cole o código enviado pelo mestre"><button id="joinCampaign" type="button" class="primary wide actions">Entrar na campanha</button></form>
+  </dialog>
+  <script src="config.js"></script><script type="module" src="app.js"></script>
 </body>
 </html>

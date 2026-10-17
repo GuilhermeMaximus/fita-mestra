@@ -1,6 +1,31 @@
-# Fita Metra — fichas e overlay OBS
+﻿# Fita Mestra — fichas e overlay OBS
 
 Painel estático em JavaScript, com autenticação, PostgreSQL e Storage no Supabase. A versão 2 preserva rascunhos por personagem/campanha, sincroniza os dados e detecta conflitos antes de gravar.
+
+## Interface Fita Mestra
+
+A navegação segue as tarefas do usuário:
+
+- **Sessão:** ajustar vida e escolher o retrato que entra em cena.
+- **Ficha:** editar nome, vida máxima e anotações.
+- **Retratos:** enviar imagens por estado. O upload salva imediatamente; a escolha do retrato em cena é separada.
+- **OBS:** copiar o link, seguir a configuração de 490 × 320 e personalizar texto.
+- **Configurar campanha:** escolher entre as sete barras, ajustar cores e administrar participantes.
+
+**Salvar alterações** grava os campos modificados de todas as abas do personagem. **Salvar aparência** é independente e vale para toda a campanha. Rascunhos são mantidos em memória ao trocar abas ou personagens; não sobrevivem ao fechamento da página. A interface avisa antes de sair com alterações.
+
+A interface abre diretamente, sem introdução nem imagem decorativa na entrada. **Reduzir animações** controla as transições discretas e guarda a preferência neste navegador; a preferência do sistema também é respeitada. Não há iluminação do cursor nem dependência de Three.js.
+
+As decisões e referências da remodelação estão em [DESIGN.md](DESIGN.md).
+
+Para experimentar com dados fictícios, sem conectar ao Supabase:
+
+```sh
+pnpm build
+pnpm demo
+```
+
+Abra `http://127.0.0.1:4174`. O mock persiste as alterações salvas em `.local-test/data.json` e oferece perfis de mestre/jogador, cadastro fictício, convites, administração, upload e OBS. A barra de teste permite trocar de perfil e restaurar os exemplos. Não há autenticação nem envio de e-mails reais. Para integração real, use um projeto Supabase separado e `pnpm start` na porta 4173. O passo a passo está em [TESTES.md](TESTES.md).
 
 ## Desenvolvimento e publicação
 
@@ -75,6 +100,9 @@ O worker processa até 100 objetos por execução. Para execução automática, 
 ## Estrutura
 
 - `src/app.js`: controlador da interface e integração dos fluxos.
+- `src/navigation.js`: abas acessíveis, telas, formulários de entrada e diálogo de campanhas.
+- `ui.js`: preferências de movimento e transições da interface.
+- `src/mock-client.js` e `scripts/mock-store.js`: adaptador e banco persistente do ambiente local de teste.
 - `src/model.js`: rascunhos, conflitos, controle de respostas e validações.
 - `src/api.js`: acesso ao Supabase e upload.
 - `src/client.js`: cliente com tempo máximo de requisição.
@@ -87,7 +115,7 @@ O worker processa até 100 objetos por execução. Para execução automática, 
 
 Os testes de banco usam PostgreSQL local via PGlite, com tabelas de Auth/Storage simuladas e papéis `anon`, `authenticated` e `service_role`. Executam a base e a migração reais; apenas a geração de bytes aleatórios da extensão pgcrypto é substituída no fixture. Isso valida SQL, RLS, conflitos e revogações sem acessar o banco remoto, mas não substitui um teste de instalação no Supabase real.
 
-O workflow `.github/workflows/check.yml` executa sintaxe, testes e build. As imagens originais foram preservadas. `assets/optimized/` contém WebP lossless, verificados pixel a pixel. Para regenerar, instale Pillow e execute `python scripts/optimize-assets.py`.
+O workflow `.github/workflows/check.yml` executa sintaxe, testes e build. As imagens originais foram preservadas. As sete barras em `assets/optimized/` usam WebP lossless, verificado pixel a pixel. A arte VHS usa WebP com qualidade 88 (aproximadamente 249 KiB). Para regenerar, instale Pillow e execute `python scripts/optimize-assets.py`.
 
 O teste opcional `tests/browser-smoke.cjs` usa Playwright e Edge instalado. Execute `node tests/browser-smoke.cjs` com Playwright disponível, ou defina `PLAYWRIGHT_MODULE` para o diretório de uma instalação existente. O teste inicia seu próprio servidor, intercepta todo o tráfego Supabase e salva capturas em `test-results/`; não usa contas reais. `BROWSER_CHANNEL` permite escolher outro canal do Chromium. O roteiro também verifica a escala da prévia no celular.
 

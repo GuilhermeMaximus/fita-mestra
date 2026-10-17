@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { JSDOM } from 'jsdom';
 import { createApp } from '../src/app.js';
+import { bars } from '../shared.js';
 
 const html = await readFile('index.html', 'utf8');
 const deferred = () => { let resolve; const promise = new Promise(r => resolve = r); return { promise, resolve }; };
@@ -29,6 +30,97 @@ async function fixture(t) {
   await app.sessionChanged({ user: { id: 'u', email: 'u@example.test' } }, 'SIGNED_IN');
   return { app, api, rows, calls, $, input, dom };
 }
+
+test('task tabs preserve drafts and support Arrow, Home and End keys', async t => {
+  const f = await fixture(t), w = f.dom.window;
+  f.$('tab-sheet').click(); f.input('notes', 'Rascunho entre abas');
+  f.$('tab-sheet').dispatchEvent(new w.KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+  assert.equal(f.$('tab-obs').getAttribute('aria-selected'), 'true');
+  assert.equal(f.dom.window.document.activeElement, f.$('tab-obs'));
+  assert.equal(f.$('panel-sheet').hidden, true);
+  f.$('tab-obs').dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+  assert.equal(f.$('tab-session').tabIndex, 0);
+  f.$('tab-session').dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+  assert.equal(f.$('notes').value, 'Rascunho entre abas');
+  assert.equal(f.$('saveCharacter').disabled, false);
+  await f.$('saveCharacter').onclick();
+  assert.equal(f.$('saveCharacter').disabled, true);
+});
+
+test('sync preserves keyboard focus in roster and visual bar selector', async t => {
+  const f = await fixture(t);
+  const rosterButton = f.$('characters').children[1]; rosterButton.focus();
+  await f.app.refreshCampaigns();
+  assert.equal(f.dom.window.document.activeElement, rosterButton);
+  f.$('campaignSettings').click();
+  const bar = f.$('barOptions').children[2]; bar.focus(); bar.click();
+  await f.app.refreshCampaigns();
+  assert.equal(f.dom.window.document.activeElement, bar);
+  assert.equal(bar.getAttribute('aria-pressed'), 'true');
+});
+
+test('portrait selection chooses upload destination without changing live state', async t => {
+  const f = await fixture(t);
+  f.$('portraitGallery').children[1].click();
+  assert.equal(f.$('uploadSlot').value, 'Combate');
+  assert.equal(f.$('activeSlot').value, 'Normal');
+  assert.equal(f.app.chars.dirty('A'), false);
+  f.input('activeSlot', 'Combate');
+  assert.equal(f.app.chars.dirty('A'), true);
+});
+
+test('invalid fields are revealed in their tab before save can proceed', async t => {
+  const f = await fixture(t);
+  f.input('charName', '');
+  f.$('tab-session').click();
+  await f.$('saveCharacter').onclick();
+  assert.equal(f.$('panel-sheet').hidden, false);
+  assert.equal(f.dom.window.document.activeElement, f.$('charName'));
+  assert.equal(f.calls.length, 0);
+});
+
+test('empty campaigns and empty rosters have actionable first steps', async t => {
+  const f = await fixture(t);
+  f.rows.a = []; await f.app.refreshCharacters();
+  assert.equal(f.$('noCharacter').classList.contains('hidden'), false);
+  assert.equal(f.$('editor').classList.contains('hidden'), true);
+  f.api.campaigns = async () => []; await f.app.refreshCampaigns();
+  assert.equal(f.$('noCampaign').classList.contains('hidden'), false);
+  assert.equal(f.$('campaignSettings').disabled, true);
+});
+
+test('campaign dialog keeps errors inside the dialog and submits one create', async t => {
+  const f = await fixture(t);
+  f.$('campaignDialog').showModal = () => { f.$('campaignDialog').open = true; };
+  f.$('campaignDialog').close = () => { f.$('campaignDialog').open = false; };
+  f.dom.window.document.querySelector('[data-open-campaign]').click();
+  await f.$('createCampaign').onclick();
+  assert.match(f.$('dialogMessage').textContent, /nome de campanha/);
+  f.api.rpc = async () => 'a'; f.$('newCampaign').value = 'Nova mesa';
+  await f.$('createCampaign').onclick();
+  assert.equal(f.$('campaignDialog').open, false);
+});
+
+test('every available bar has a visible thumbnail and remains selectable', async t => {
+  const f = await fixture(t);
+  assert.equal(f.$('barOptions').children.length, Object.keys(bars).length);
+  for (const tile of f.$('barOptions').children) {
+    assert.equal(tile.querySelector('img').getAttribute('src'), bars[tile.dataset.bar]);
+    tile.click();
+    assert.equal(f.app.appearances.get('a').draft.bar, tile.dataset.bar);
+  }
+});
+
+test('authentication has one native submit action for each mode', async t => {
+  const f = await fixture(t), doc = f.dom.window.document;
+  assert.equal(f.$('login').type, 'submit');
+  doc.querySelector('[data-auth-mode="signup"]').click();
+  assert.equal(f.$('signup').type, 'submit'); assert.equal(f.$('login').type, 'button');
+  doc.querySelector('[data-auth-mode="login"]').click();
+  doc.querySelector('[data-auth-mode="reset"]').click();
+  assert.equal(f.$('resetPassword').type, 'submit'); assert.equal(f.$('password').required, false);
+  assert.equal(doc.querySelectorAll('#authForm button[type=submit]').length, 1);
+});
 
 test('upload preserves unsaved form and original destination across character selection', async t => {
   const f = await fixture(t); const d = deferred(); let target;

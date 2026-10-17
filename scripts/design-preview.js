@@ -1,55 +1,46 @@
-// Local demonstration of the real interface. No Supabase connection or credentials.
+// Persistent local simulator. Deliberately never connects to Supabase.
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { resolve, extname, sep } from 'node:path';
-import { build } from 'esbuild';
+import { createMockStore } from './mock-store.js';
 
-const root = resolve('dist');
-const demoEntry = String.raw`
-import { createApp } from './src/app.js';
-const uid='demo-master';
-const campaigns=[{id:'mesa',title:'Ecos de Aether',owner_id:uid,invite_code:'AETHER2026',bar:'Pixel Art',grad1:'#f064a5',grad2:'#8c72ff',fits:{},version:1}];
-const base={campaign_id:'mesa',owner_id:uid,images:{},active_slot:'Normal',font:'Georgia',name_color:'#ffffff',name_size:25,show_hp:true,version:1};
-let characters=[
- {...base,id:'lyra',overlay_token:'11111111-1111-4111-8111-111111111111',name:'Lyra Valen',hp:32,max_hp:45,notes:'Patrulheira das fronteiras.\n\nInventário\nArco longo, mapa das ruínas e uma bússola que aponta para o portal.'},
- {...base,id:'dorian',overlay_token:'22222222-2222-4222-8222-222222222222',name:'Dorian Ash',hp:18,max_hp:60,notes:'O escudo da companhia.'},
- {...base,id:'mira',overlay_token:'33333333-3333-4333-8333-333333333333',name:'Mira Sol',hp:28,max_hp:28,notes:'Aprendiz dos arquivos celestes.'}
-];
-const clone=value=>structuredClone(value);
-const api={
- campaigns:async()=>clone(campaigns), characters:async id=>clone(characters.filter(c=>c.campaign_id===id)),members:async()=>[{user_id:'demo-player',label:'Dorian Ash'}],
- saveCharacter:async(id,{patch})=>{const c=characters.find(c=>c.id===id);Object.assign(c,patch,{version:c.version+1});return clone(c)},
- saveCampaign:async(id,{patch})=>{const c=campaigns.find(c=>c.id===id);Object.assign(c,patch,{version:c.version+1});return clone(c)},
- createCharacter:async(cid)=>{const c={...clone(base),id:crypto.randomUUID(),campaign_id:cid,overlay_token:crypto.randomUUID(),name:'Novo personagem',hp:100,max_hp:100,notes:''};characters.push(c);return clone(c)},
- deleteCharacter:async(id)=>{characters=characters.filter(c=>c.id!==id);return{id}},
- uploadPortrait:async({characterId,slot,file})=>{const c=characters.find(c=>c.id===characterId);c.images[slot]=URL.createObjectURL(file);c.version++;return clone(c)},
- rpc:async(name,args)=>{
-  if(name==='create_campaign'){const id=crypto.randomUUID();campaigns.unshift({...clone(campaigns[0]),id,title:args.campaign_title});return id}
-  if(name==='join_campaign')return 'mesa';
-  if(name==='rotate_overlay'){const c=characters.find(c=>c.id===args.target_id);c.overlay_token=crypto.randomUUID();return clone(c)}
-  if(name==='rotate_invite'){const c=campaigns.find(c=>c.id===args.cid);c.invite_code='NOVOCONVITE';return clone(c)}
-  return null;
- }
-};
-let listener;
-const session={user:{id:uid,email:'mestre@exemplo.com'}};
-const db={auth:{onAuthStateChange:fn=>{listener=fn;return{data:{subscription:{unsubscribe(){}}}}},getSession:async()=>({data:{session}}),signOut:async()=>{listener('SIGNED_OUT',null);return{data:{}}},signInWithPassword:async()=>{listener('SIGNED_IN',session);return{data:{session}}},signUp:async()=>({data:{session:null}}),resetPasswordForEmail:async()=>({data:{}}),updateUser:async()=>({data:{}})}};
-const app=createApp({db,api,doc:document,win:window});app.start();
-document.title='Fita Metra · demonstração local';
-const notice=document.createElement('div');notice.className='demo-notice';notice.textContent='Demonstração local · alterações não são enviadas ao Supabase';document.body.prepend(notice);
-`;
+const root = resolve('dist'), port = Number(process.env.MOCK_PORT || 4174);
+const store = createMockStore(resolve('.local-test/data.json'));
+const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.webp': 'image/webp' };
 const server = http.createServer(async (req, res) => {
   try {
-    const pathname = new URL(req.url, 'http://localhost').pathname;
-    if (pathname === '/preview-entry.js') {
-      const result = await build({ stdin: { contents: demoEntry, resolveDir: process.cwd(), sourcefile: 'demo.js' }, bundle: true, format: 'esm', write: false, target: 'es2022' });
-      res.writeHead(200, { 'Content-Type': 'text/javascript', 'Cache-Control': 'no-store' }); res.end(result.outputFiles[0].contents); return;
+    const allowed = ['127.0.0.1:' + port, 'localhost:' + port];
+    if (!allowed.includes(req.headers.host) || (req.headers.origin && req.headers.origin !== 'http://' + req.headers.host)) {
+      res.writeHead(403); res.end('Origem não permitida.'); return;
     }
-    const filename = resolve(root, '.' + (pathname === '/' ? '/index.html' : pathname));
-    if (!filename.startsWith(root + sep)) throw Error('Invalid path');
-    let body = await readFile(filename);
-    if (pathname === '/' || pathname === '/index.html') body = body.toString().replace('src="app.js"', 'src="preview-entry.js"');
-    res.writeHead(200, { 'Content-Type': ({'.html':'text/html; charset=utf-8','.js':'text/javascript','.css':'text/css','.webp':'image/webp'})[extname(filename)] || 'application/octet-stream', 'Cache-Control':'no-store' }); res.end(body);
-  } catch (e) { res.writeHead(500); res.end(e.message); }
+    const pathname = new URL(req.url, 'http://localhost').pathname;
+    if (pathname === '/__mock/api') {
+      if (req.method !== 'POST' || !req.headers['content-type']?.startsWith('application/json')) { res.writeHead(405); res.end(); return; }
+      let size = 0; const chunks = [];
+      for await (const chunk of req) { size += chunk.length; if (size > 8 * 1024 * 1024) throw Error('Arquivo muito grande.'); chunks.push(chunk); }
+      const { op, args, userId } = JSON.parse(Buffer.concat(chunks).toString());
+      const data = store.execute(op, args, userId);
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify({ data })); return;
+    }
+    if (pathname === '/config.js') {
+      res.writeHead(200, { 'Content-Type': 'text/javascript', 'Cache-Control': 'no-store' });
+      res.end('window.FITA_CONFIG = { mode: "mock" };'); return;
+    }
+    const filename = resolve(root, '.' + decodeURIComponent(pathname).replace(/\/$/, '/index.html'));
+    if (!filename.startsWith(root + sep)) { res.writeHead(403); res.end(); return; }
+    const body = await readFile(filename);
+    res.writeHead(200, { 'Content-Type': types[extname(filename)] || 'application/octet-stream', 'Cache-Control': 'no-store' }); res.end(body);
+  } catch (error) {
+    res.writeHead(error.code === 'ENOENT' ? 404 : 400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: error.message }));
+  }
 });
-server.listen(4174,'127.0.0.1',()=>console.log('Demonstração local: http://127.0.0.1:4174'));
+server.on('error', error => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`A porta ${port} já está em uso.\nSe o Fita Mestra já estiver rodando, abra http://127.0.0.1:${port}/ — não precisa iniciar novamente.\nPara reiniciar, encerre o servidor anterior com Ctrl+C no terminal dele e execute pnpm demo novamente.`);
+  } else {
+    console.error(`Não foi possível iniciar o teste local: ${error.message}`);
+  }
+  process.exitCode = 1;
+});
+server.listen(port, '127.0.0.1', () => console.log('Teste local persistente: http://127.0.0.1:' + port + '\nDados: .local-test/data.json'));
